@@ -42,6 +42,12 @@ Lift your hand up and down to scroll. Do a double tap (in the air!) to reverse d
 
 ![Hand gesture controlling scrolling](assets/zoom/scroll.gif)
 
+### Sweep your hand to swipe
+
+Sweep your hand sideways to change photos. Pause before returning your hand.
+
+![Hand gesture controlling photo navigation](assets/zoom/swipe.gif)
+
 ### Push and pull to zoom
 
 Push toward the screen to zoom in. Pull back toward yourself to zoom out.

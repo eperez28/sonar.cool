@@ -43,7 +43,7 @@ struct ControlModeView: View {
                 Text(instruction).font(.system(size:16,weight:.medium)).fixedSize(horizontal:false,vertical:true)
                 Text("Try the preview below. Switch to another app to control it with the same gesture.")
                     .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
-                if reader.mode == .zoom || reader.mode == .scroll {
+                if reader.mode == .zoom || reader.mode == .scroll || reader.mode == .gallery {
                     Button { showZoomHelp = true } label: {
                         HStack(spacing:10) {
                             Image(systemName:"play.circle.fill")
@@ -55,11 +55,11 @@ struct ControlModeView: View {
                             .contentShape(RoundedRectangle(cornerRadius:10))
                     }.buttonStyle(.plain).help("Watch the gesture")
                         .sheet(isPresented:$showZoomHelp) {
-                            AppSheet(title:reader.mode == .scroll ? "Lift your hand to scroll" : "Push and pull to zoom",close:{ showZoomHelp = false }) {
+                            AppSheet(title:reader.mode == .scroll ? "Lift your hand to scroll" : reader.mode == .gallery ? "Sweep your hand to swipe" : "Push and pull to zoom",close:{ showZoomHelp = false }) {
                                 VStack(alignment:.leading,spacing:20) {
-                                    Text(reader.mode == .scroll ? "Lift your hand up and down to scroll. Do a double tap (in the air!) to reverse directions." : "Push toward the screen to zoom in. Pull back toward yourself to zoom out.")
+                                    Text(reader.mode == .scroll ? "Lift your hand up and down to scroll. Do a double tap (in the air!) to reverse directions." : reader.mode == .gallery ? "Sweep your hand sideways to change photos. Pause before returning your hand." : "Push toward the screen to zoom in. Pull back toward yourself to zoom out.")
                                         .font(.callout).foregroundStyle(.secondary)
-                                    GesturePreview(resource:reader.mode == .scroll ? "scroll" : "push-pull").frame(height:320).clipped().clipShape(RoundedRectangle(cornerRadius:12))
+                                    GesturePreview(resource:reader.mode == .scroll ? "scroll" : reader.mode == .gallery ? "swipe" : "push-pull").frame(height:320).clipped().clipShape(RoundedRectangle(cornerRadius:12))
                                 }
                             }
                         }
