@@ -62,7 +62,9 @@ The app and ZIP are written to `outputs/`. Automated tests check the code. Try t
 
 Allow microphone access. Allow Accessibility if you want to control other apps. Choose a mode, press Start, and keep still during the startup countdown. Sessions run until you stop them. Stop is always available from the menu bar; Control–Option–Command–Space also stops the session.
 
-Use the built-in speakers and microphone. Bluetooth audio is excluded. Some people can hear the tone: stop if it is audible or uncomfortable. Pet safety and sound levels across Mac models still need evaluation.
+Use the built-in speakers and microphone. Bluetooth audio is excluded. Some people can hear the tone: stop if it is audible or uncomfortable.
+
+**FYI for pets:** Sonar defaults to a 20 kHz tone. [Dogs and cats can hear frequencies in this range](https://www.lsu.edu/vetmed/deafness/hearingrange.php). Use it away from pets and stop if they seem uncomfortable. Pet safety and sound levels across Mac models still need evaluation.
 
 If macOS stops recognizing Accessibility access after a rebuild, remove the old entry and add the current app again. For repeated development, signing with the same certificate helps preserve access.
 
