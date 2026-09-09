@@ -3,7 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 SONAR_STAGE=$(mktemp -d /private/tmp/sonarlab-build.XXXXXX)
 trap 'rm -rf "$SONAR_STAGE"' EXIT
-SONAR_APP="$SONAR_STAGE/SonarLab.app"
+SONAR_APP="$SONAR_STAGE/Sonar.app"
 mkdir -p "$SONAR_APP/Contents/MacOS" "$SONAR_APP/Contents/Resources"
 cp assets/sonar.png "$SONAR_APP/Contents/Resources/SonarMark.png"
 SONAR_ICONSET="$SONAR_STAGE/Sonar.iconset"
