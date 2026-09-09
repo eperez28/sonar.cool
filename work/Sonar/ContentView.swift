@@ -178,7 +178,7 @@ struct ExperimentLayout<Toolbar: View, Stage: View, Actions: View, Status: View>
             }.clipped()
             actions().frame(height:32)
             status().frame(height:48)
-        }.padding(24).frame(maxWidth:.infinity,maxHeight:.infinity)
+        }.padding(24).frame(maxWidth:960).frame(maxWidth:.infinity,maxHeight:.infinity)
     }
 }
 
