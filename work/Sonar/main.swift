@@ -364,7 +364,7 @@ func builtInDevice(scope: AudioObjectPropertyScope) throws -> AudioDeviceID {
         a.mSelector = kAudioDevicePropertyStreams; a.mScope = scope; s = 0
         if AudioObjectGetPropertyDataSize(id, &a, 0, nil, &s) == noErr && s > 0 { return id }
     }
-    throw NSError(domain: "SonarLab", code: 1, userInfo: [NSLocalizedDescriptionKey: "Built-in audio device not found."])
+    throw NSError(domain: "Sonar", code: 1, userInfo: [NSLocalizedDescriptionKey: "Built-in audio device not found."])
 }
 
 final class Sonar: ObservableObject {
@@ -380,7 +380,7 @@ final class Sonar: ObservableObject {
     @Published var level = 0.008
     @Published var route = "Built-in speakers + microphone • AirPods excluded"
     private var engine: HardwareAudio?
-    private let analysisQueue = DispatchQueue(label:"sonarlab.analysis")
+    private let analysisQueue = DispatchQueue(label:"sonar.analysis")
     private var timer: Timer?
     var globalControlsReady = false
     private var session = UUID()

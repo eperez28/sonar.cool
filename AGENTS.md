@@ -5,7 +5,7 @@
 - Work on the native **Sonar Lab app** only, unless the user explicitly expands the task.
 - GitHub repository: https://github.com/eperez28/sonar.cool
 - Default branch: `master`.
-- App source: `work/SonarLab/`. The internal directory, executable, bundle identifier `com.emanuel.sonarlab`, intentionally retain their old names. Existing installations may use `/Applications/SonarLab.app`; preserve their path when updating.
+- App source: `work/Sonar/`; executable: `Sonar`. Preserve the existing bundle identifier `com.emanuel.sonarlab` for permission continuity. Older installations may use `/Applications/SonarLab.app`; preserve their path when updating. Keep the legacy process-name check in the installer for upgrades.
 - User-facing app branding is `Sonar`; the repository is `sonar.cool`.
 - Do not include SonarTheremin, the website, Blender projects, renders, or sibling-workspace files in Lab commits. These were previously pushed accidentally; the public-preparation history removes them.
 

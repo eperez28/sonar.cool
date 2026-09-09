@@ -90,7 +90,7 @@ A repeatable measurement still needs a recorded app version and Mac model, consi
 
 ## Developer options
 
-Set `SONAR_SIGNING_IDENTITY` to use your own signing certificate. Otherwise the script signs locally without a certificate. Set `SONAR_INSTALL_PATH` to keep an existing installation in its original location. The internal executable and bundle identifier retain the old SonarLab name to preserve app identity.
+Set `SONAR_SIGNING_IDENTITY` to use your own signing certificate. Otherwise the script signs locally without a certificate. Set `SONAR_INSTALL_PATH` to keep an existing installation in its original location. Source files live in `work/Sonar/`, and the executable is named `Sonar`. The existing bundle identifier stays stable to preserve app identity.
 
 `SONAR_PAPER_PATH` optionally replaces the bundled SoundWave paper with a PDF of your choice. `--verify-audio` runs a short microphone/speaker check; `--verify-scroll` checks the practice reader with simulated gestures.
 
