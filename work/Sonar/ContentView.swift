@@ -67,7 +67,7 @@ struct ContentView: View {
                         if sonar.running || sonar.starting { sonar.stop() } else { sonar.start() }
                     } label: {
                         Label(sonar.running || sonar.starting ? "Stop" : "Start",systemImage:sonar.running || sonar.starting ? "stop.fill" : "play.fill")
-                            .font(.system(size:17,weight:.semibold)).frame(minWidth:110,minHeight:30)
+                            .font(.system(size:15,weight:.semibold)).frame(minWidth:90,minHeight:24)
                     }.buttonStyle(.borderedProminent).tint(sonar.running || sonar.starting ? .red : .accentColor).controlSize(.large)
                     VStack(alignment:.leading,spacing:4) {
                         Text(reader.mode.rawValue).font(.system(size:26,weight:.semibold))
