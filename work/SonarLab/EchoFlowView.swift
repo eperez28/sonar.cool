@@ -75,14 +75,13 @@ struct EchoFlowView: View {
                 }
                 .background(Color(red:0.015,green:0.026,blue:0.033))
                 .clipShape(RoundedRectangle(cornerRadius:16))
-            }.frame(minHeight:300,maxHeight:.infinity)
+            }.frame(minHeight:180,maxHeight:.infinity)
             HStack {
                 Text("Response").font(.caption).foregroundStyle(.secondary)
                 Slider(value:$gain,in:0.5...3).frame(width:110).accessibilityLabel("Visual response")
                 Spacer()
                 Text(frozen ? "Frozen · audio continues" : "Upward stream").font(.caption).foregroundStyle(.secondary)
             }
-            Text("Stylized deflection · bend location is illustrative").font(.caption).foregroundStyle(.secondary)
         }
     }
 }

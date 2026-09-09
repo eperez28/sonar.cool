@@ -3,11 +3,12 @@ import SwiftUI
 
 // These demos classify radial motion, not hand position or finger count.
 enum DemoMode: String, CaseIterable, Identifiable {
-    case scroll = "Scroll", gallery = "Gallery", signal = "Signal", distance = "Distance", position = "Position"
+    case scroll = "Scroll", gallery = "Swipe", zoom = "Zoom", signal = "Signal", distance = "Distance", position = "Position"
     var id: String { rawValue }
     var instructions: String {
         switch self {
-        case .scroll: return "Lift your hand to scroll; lower to reset. Two quick pushes reverse direction."
+        case .zoom: return "Push to zoom in; pull to zoom back out. Reverse gestures swaps these."
+        case .scroll: return "Lift your palm to scroll in the selected direction; lower it to stop. Two quick downward pushes switch direction."
         case .gallery: return "Sweep your palm sideways above the keyboard to browse. Pause briefly between sweeps. If the page moves the opposite way, use Reverse directions."
         case .position: return "Test independent echoes from both speakers."
         case .distance: return "Measure an experimental echo range with swept tones."
@@ -64,6 +65,15 @@ final class DemoSession: ObservableObject {
     @Published var inputFeedback = "Waiting for audio"
     @Published var galleryIndex = 0
     @Published var photos: [NSImage] = []
+    init() { loadSamplePhotos() }
+    func loadSamplePhotos() {
+        photos = (1...5).compactMap { index in
+            guard let url = Bundle.main.url(forResource:String(format:"%02d",index),withExtension:"jpg",subdirectory:"Gallery") else { return nil }
+            return NSImage(contentsOf:url)
+        }
+        galleryIndex = 0; resetInput()
+    }
+    @Published var lastNavigation = "↔"
     @Published var changes = 0
     private var detector = DemoGestureDetector()
     func resetInput() { wave.resetInput(); detector = DemoGestureDetector() }
@@ -79,8 +89,8 @@ final class DemoSession: ObservableObject {
     }
     func perform(_ event: String, manual: Bool = true) {
         if !manual && (event == "next" || event == "previous"), let sent = galleryOutput?(event) {
-            if sent { changes += 1 }
-            feedback = sent ? "Chrome · \(event.capitalized) · #\(changes)" : "Chrome paused · click the gallery image, outside text fields"
+            if sent { changes += 1; lastNavigation = event == "next" ? "→" : "←" }
+            feedback = sent ? "App · \(event.capitalized) · #\(changes)" : "App paused · click the gallery image, outside text fields"
             return
         }
         switch event {
@@ -88,6 +98,7 @@ final class DemoSession: ObservableObject {
         case "previous": galleryIndex = (galleryIndex+(photos.isEmpty ? 5 : photos.count)-1) % (photos.isEmpty ? 5 : photos.count)
         default: return
         }
+        lastNavigation = event == "next" ? "→" : "←"
         changes += 1
         feedback = "\(manual ? "Button" : "Gesture") · \(event.capitalized) · #\(changes)"
     }
@@ -103,9 +114,6 @@ final class DemoSession: ObservableObject {
 struct DemoPanel: View {
     @ObservedObject var demo: DemoSession
     let mode: DemoMode
-    private let names = ["Alpine morning", "Desert dusk", "Ocean blue", "Forest light", "After hours"]
-    private let icons = ["mountain.2.fill", "sun.haze.fill", "water.waves", "tree.fill", "moon.stars.fill"]
-    private let colors: [Color] = [.cyan,.orange,.blue,.green,.purple]
     var body: some View {
         VStack(spacing:20) {
             if !demo.feedback.hasPrefix("Start,") { Text(demo.feedback.components(separatedBy:" · ").prefix(2).joined(separator:" · ")).font(.callout).foregroundStyle(.secondary).frame(maxWidth:.infinity,alignment:.leading) }
@@ -113,15 +121,15 @@ struct DemoPanel: View {
             case .gallery:
                 Text("Sweep your palm sideways. Pause briefly between waves.").font(.callout).foregroundStyle(.secondary)
                 ZStack {
-                    RoundedRectangle(cornerRadius:24).fill(LinearGradient(colors:[colors[demo.galleryIndex % 5].opacity(0.7),.black],startPoint:.topLeading,endPoint:.bottomTrailing))
+                    RoundedRectangle(cornerRadius:16).fill(Color.black.opacity(0.95))
                     if !demo.photos.isEmpty {
-                        Image(nsImage:demo.photos[demo.galleryIndex % demo.photos.count]).resizable().scaledToFit().padding(20)
+                        Image(nsImage:demo.photos[demo.galleryIndex % demo.photos.count]).resizable().scaledToFit().padding(6)
                     } else {
-                        VStack(spacing:24) { Image(systemName:icons[demo.galleryIndex % 5]).font(.system(size:110)); Text(names[demo.galleryIndex % 5]).font(.largeTitle) }
+                        Text("Open some photos to get started.").foregroundStyle(.white)
                     }
                 }.frame(maxHeight:.infinity)
-                HStack { Button("Previous") { demo.perform("previous") }; Text("\(demo.galleryIndex+1) / \(demo.photos.isEmpty ? 5 : demo.photos.count)"); Button("Next") { demo.perform("next") }; Spacer(); Button("Open images…") { demo.openPhotos() } }
-            case .scroll, .signal, .distance, .position: EmptyView()
+                HStack { Button("Previous") { demo.perform("previous") }; Text("\(demo.galleryIndex+1) / \(demo.photos.isEmpty ? 5 : demo.photos.count)"); Button("Next") { demo.perform("next") }; Spacer(); Button("Sample photos") { demo.loadSamplePhotos() }; Button("Open images…") { demo.openPhotos() } }
+            case .zoom, .scroll, .signal, .distance, .position: EmptyView()
             }
             Text("Keep this window in front while practicing.").font(.caption).foregroundStyle(.secondary)
         }.padding(24).frame(maxWidth:.infinity,maxHeight:.infinity)
@@ -141,7 +149,7 @@ func testDemoModes() {
         feed(dir == "APPROACHING" ? "MOVING AWAY" : "APPROACHING",20)
         testCheck(events == [expected],"Demo gesture / return suppression: \(mode) \(events)")
     }
-    let session = DemoSession(); session.photos = [NSImage(size:NSSize(width:1,height:1)),NSImage(size:NSSize(width:1,height:1))]
+    let session = DemoSession(); testCheck(session.photos.count == 5,"Bundled gallery photos missing"); session.photos = [NSImage(size:NSSize(width:1,height:1)),NSImage(size:NSSize(width:1,height:1))]
     session.perform("previous"); testCheck(session.galleryIndex == 1)
     session.perform("next"); testCheck(session.galleryIndex == 0)
     var delivered: [String] = []

@@ -3,20 +3,22 @@ import SwiftUI
 
 extension DemoMode {
     var symbol: String {
-        switch self { case .scroll: return "scroll"; case .gallery: return "photo.on.rectangle"; case .position: return "scope"; case .distance: return "ruler"; case .signal: return "waveform.path" }
+        switch self { case .zoom: return "plus.magnifyingglass"; case .scroll: return "scroll"; case .gallery: return "photo.on.rectangle"; case .position: return "scope"; case .distance: return "ruler"; case .signal: return "waveform.path" }
     }
     var subtitle: String {
         switch self {
-        case .scroll: return "Read with a lift of your hand."
-        case .gallery: return "Browse images with a wave."
-        case .position: return "Experimental two-speaker positioning."
-        case .distance: return "Explore acoustic distance measurement."
-        case .signal: return "See the sound your hand reflects."
+        case .zoom: return "Take a closer look by moving your hand."
+        case .scroll: return "Scroll through a page without touching your Mac."
+        case .gallery: return "Browse photos by moving your hand left and right."
+        case .position: return "An experimental estimate from two speaker echoes."
+        case .distance: return "Explore echo delay, not exact hand height."
+        case .signal: return "Watch changes in the microphone signal."
         }
     }
 }
 
 struct ContentView: View {
+    @State private var showHowItWorks = false
     @ObservedObject var sonar: Sonar
     @ObservedObject var reader: Reader
     init(sonar: Sonar) { self.sonar = sonar; reader = sonar.reader }
@@ -38,7 +40,7 @@ struct ContentView: View {
                 }.padding(22)
                 List(selection:selection) {
                     Section("CONTROLS") {
-                        ForEach([DemoMode.scroll,.gallery]) { mode in Label(mode.rawValue,systemImage:mode.symbol).tag(mode) }
+                        ForEach([DemoMode.scroll,.gallery,.zoom]) { mode in Label(mode.rawValue,systemImage:mode.symbol).tag(mode) }
                     }
                     Section("EXPERIMENTS") {
                         ForEach([DemoMode.signal,.distance,.position]) { mode in Label(mode.rawValue,systemImage:mode.symbol).tag(mode) }
@@ -47,6 +49,13 @@ struct ContentView: View {
                 VStack(alignment:.leading,spacing:14) {
                     Label("Built-in audio",systemImage:"speaker.wave.2").font(.caption).foregroundStyle(.secondary)
                     Button { AudioSettingsWindow.show(sonar) } label: { Label("Audio settings…",systemImage:"slider.horizontal.3") }.buttonStyle(.plain)
+                    Button { showHowItWorks.toggle() } label: { Label("How it works",systemImage:"questionmark.circle") }.buttonStyle(.plain)
+                        .sheet(isPresented:$showHowItWorks) {
+                            VStack(spacing:0) {
+                                ScrollView { HowItWorksView() }.frame(width:440,height:550)
+                                Button("Done") { showHowItWorks = false }.keyboardShortcut(.defaultAction).padding(.bottom,20)
+                            }
+                        }
                     Text("Stop anywhere  ⌃⌥⌘Space").font(.system(size:10)).foregroundStyle(.secondary)
                 }.padding(20)
             }.frame(width:195).background(.regularMaterial)
@@ -62,27 +71,11 @@ struct ContentView: View {
                         Circle().fill(sonar.running ? Color.mint : Color.secondary.opacity(0.5)).frame(width:6,height:6)
                         Text(sonar.starting ? "Starting" : sonar.running ? ((sonar.status.contains("Calibrating") || sonar.status.contains("Measuring empty desk")) ? "Calibrating" : "Active") : "Stopped").font(.callout)
                     }.foregroundStyle(.secondary)
-                    if reader.mode != .distance || sonar.running || sonar.starting {
                     Button(sonar.running || sonar.starting ? "Stop" : "Start") {
                         if sonar.running || sonar.starting { sonar.stop() } else { sonar.start() }
                     }.buttonStyle(.borderedProminent).tint(sonar.running ? .red : .accentColor).controlSize(.large).frame(minWidth:78)
-                    }
                 }.padding(24)
                 Divider()
-                HStack {
-                    if reader.mode == .gallery {
-                        Picker("Control",selection:$reader.chromeGallery) { Text("Chrome").tag(true); Text("Practice here").tag(false) }.pickerStyle(.segmented).frame(width:260)
-                        Spacer()
-                        WaveDirectionToggle(wave:reader.demo.wave)
-                    } else if reader.mode == .scroll {
-                        Picker("Control",selection:$reader.systemWide) { Text("Other apps").tag(true); Text("Practice here").tag(false) }.pickerStyle(.segmented).frame(width:260)
-                        Spacer()
-                        Button(reader.forward ? "Direction: Down ↓" : "Direction: Up ↑") { reader.switchDirection() }
-                    } else {
-                        Label((reader.mode == .signal || reader.mode == .distance) ? "Live measurements" : "Practice in this window",systemImage:"macwindow").foregroundStyle(.secondary)
-                        Spacer()
-                    }
-                }.padding(.horizontal,24).padding(.vertical,16)
                 if isExternal && !reader.accessibilityGranted {
                     HStack { Text("Allow Accessibility access to control other apps."); Spacer(); Button("Open Settings") { reader.openAccessibilitySettings() } }.padding(16).background(.orange.opacity(0.12))
                 }
@@ -94,16 +87,9 @@ struct ContentView: View {
                 } else if reader.mode == .distance {
                     DistanceView(model:sonar.distance,sonar:sonar)
                 } else if reader.mode == .signal {
-                    SignalView(history:reader.signal)
-                } else if isExternal {
-                    ExternalControlView(sonar:sonar,reader:reader,demo:reader.demo)
-                } else if reader.mode == .scroll {
-                    VStack(spacing:12) {
-                        Text("Lift to scroll. Lower your hand to reset. Two quick pushes reverse direction.").font(.callout).foregroundStyle(.secondary)
-                        PaperView(reader:reader).clipShape(RoundedRectangle(cornerRadius:12))
-                    }.padding(24)
+                    SignalView(history:reader.signal,sonar:sonar)
                 } else {
-                    DemoPanel(demo:reader.demo,mode:reader.mode)
+                    ControlModeView(sonar:sonar,reader:reader,demo:reader.demo)
                 }
                 HStack {
                     Text(sonar.running ? "Runs until you stop it." : "Start, then keep still for 3 seconds.")
@@ -119,49 +105,6 @@ struct ContentView: View {
 struct WaveDirectionToggle: View {
     @ObservedObject var wave: WaveCalibration
     var body: some View { Toggle("Reverse directions",isOn:$wave.reversed).toggleStyle(.switch).controlSize(.small) }
-}
-
-struct ExternalControlView: View {
-    @ObservedObject var sonar: Sonar
-    @ObservedObject var reader: Reader
-    @ObservedObject var demo: DemoSession
-    private var gallery: Bool { reader.mode == .gallery }
-    private var feedback: String {
-        if !sonar.running { return "Ready when you are" }
-        if sonar.status.contains("Calibrating") { return "Hold still for a moment" }
-        if gallery {
-            if demo.feedback.hasPrefix("Chrome ·") { return demo.feedback.components(separatedBy:" · ").prefix(2).joined(separator:" · ") }
-            if demo.feedback.hasPrefix("Chrome paused") { return "Click the gallery image to continue" }
-            return "Ready for a wave"
-        }
-        return reader.action
-    }
-    var body: some View {
-        VStack(spacing:22) {
-            Spacer(minLength:8)
-            ZStack {
-                Circle().fill(Color.accentColor.opacity(0.08)).frame(width:120,height:120)
-                Image(systemName:gallery ? "hand.wave" : "hand.raised").font(.system(size:52,weight:.light)).foregroundStyle(Color.accentColor)
-            }
-            VStack(spacing:10) {
-                Text(gallery ? "Your gallery is in Chrome" : "Scroll in your favorite app").font(.system(size:25,weight:.semibold))
-                Text(gallery ? "Open an image, click it, then sweep your palm sideways." : "Point at the area to scroll. Lift your hand; lower it to reset.")
-                    .foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth:410).fixedSize(horizontal:false,vertical:true)
-            }
-            if gallery {
-                HStack(spacing:12) {
-                    Button { reader.testChrome(next:false) } label: { Label("Previous",systemImage:"arrow.left") }
-                    Button { reader.testChrome(next:true) } label: { Label("Next",systemImage:"arrow.right") }
-                }.controlSize(.large).disabled(!reader.accessibilityGranted)
-                Text("Buttons test Chrome. The gallery must support ← and → keys.").font(.caption).foregroundStyle(.secondary)
-            } else {
-                Toggle("Double push to reverse",isOn:$reader.airTapEnabled).toggleStyle(.switch).fixedSize()
-            }
-            Spacer(minLength:8)
-            Label(feedback,systemImage:sonar.running ? "waveform" : "circle.dotted").font(.callout).foregroundStyle(.secondary)
-                .padding(14).frame(maxWidth:.infinity).background(.quaternary.opacity(0.3)).clipShape(RoundedRectangle(cornerRadius:12))
-        }.padding(28).frame(maxWidth:.infinity,maxHeight:.infinity)
-    }
 }
 
 final class AudioSettingsWindow {
@@ -191,5 +134,68 @@ struct AudioSettingsView: View {
             Text(sonar.route).font(.caption).foregroundStyle(.secondary)
             Text("Experimental. Stop if the tone is audible or uncomfortable. Microphone audio is not saved.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
         }.padding(24).frame(width:440)
+    }
+}
+
+// Shared structure for the three experimental instruments.
+struct ExperimentIntro: View {
+    let title: String
+    let detail: String
+    var body: some View {
+        VStack(alignment:.leading,spacing:6) {
+            Text(title).font(.headline)
+            Text(detail).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+        }.frame(maxWidth:.infinity,minHeight:48,alignment:.leading)
+    }
+}
+struct ExperimentStatus: View {
+    let text: String
+    let symbol: String
+    var body: some View {
+        Label(text,systemImage:symbol).font(.callout).foregroundStyle(.secondary)
+            .frame(maxWidth:.infinity,alignment:.leading).padding(12)
+            .background(.primary.opacity(0.04),in:RoundedRectangle(cornerRadius:12))
+    }
+}
+
+struct ExperimentLayout<Toolbar: View, Stage: View, Actions: View, Status: View>: View {
+    let title: String
+    let detail: String
+    @ViewBuilder var toolbar: () -> Toolbar
+    @ViewBuilder var stage: () -> Stage
+    @ViewBuilder var actions: () -> Actions
+    @ViewBuilder var status: () -> Status
+    var body: some View {
+        VStack(alignment:.leading,spacing:16) {
+            toolbar().frame(height:32)
+            ExperimentIntro(title:title,detail:detail)
+            GeometryReader { geometry in
+                stage().frame(width:geometry.size.width,height:geometry.size.height)
+            }.clipped()
+            actions().frame(height:32)
+            status().frame(height:48)
+        }.padding(24).frame(maxWidth:.infinity,maxHeight:.infinity)
+    }
+}
+
+struct HowItWorksView: View {
+    var body: some View {
+        VStack(alignment:.leading,spacing:16) {
+            Text("How Sonar works").font(.title2.bold())
+            Text("Your Mac plays a high-frequency tone and listens with its microphone. Moving your hand changes the reflected sound. Sonar uses those changes to recognize gestures.").foregroundStyle(.secondary)
+            Divider()
+            tip("Scroll", "Lift your palm to scroll. Lower it to stop. Double-tap the air—two quick downward pushes—to switch direction. Enable Air double-tap in Scroll.")
+            tip("Swipe", "Hold an open hand palm-down above the keyboard. Sweep from one side to the other to move one image. Pause before returning your hand so the return is less likely to count as another swipe. Use Reverse directions if the image moves the wrong way. For Other apps, open a photo in Photos, a browser, or another viewer that supports left/right arrow keys. Keep that app in front.")
+            tip("Zoom", "Hold your palm above the keyboard and push it toward the screen to enlarge the image or page. Pull back toward you to zoom back out; a faster pull should make the return faster. Practice here enlarges Yoda to 150%. Other apps sends three zoom-in steps. Pulling back reverses those steps in native apps; browsers return to 100%. The app must support Command-plus/minus zoom. Keep it in front and click outside text fields. Reverse gestures swaps push and pull.")
+            Divider()
+            Text("Press Start and keep still during the countdown. Use the built-in speakers and microphone. No camera is used.").font(.callout).foregroundStyle(.secondary)
+            Text("Experimental: it senses sound changes, not fingers or exact hand position. Audio stays on your Mac.").font(.caption).foregroundStyle(.secondary)
+        }.padding(24).frame(width:400).fixedSize(horizontal:false,vertical:true)
+    }
+    private func tip(_ title:String,_ body:String) -> some View {
+        VStack(alignment:.leading,spacing:4) {
+            Text(title).font(.headline)
+            Text(body).font(.callout).foregroundStyle(.secondary)
+        }
     }
 }

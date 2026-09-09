@@ -5,6 +5,8 @@ SONAR_STAGE=$(mktemp -d /private/tmp/sonarlab-build.XXXXXX)
 trap 'rm -rf "$SONAR_STAGE"' EXIT
 SONAR_APP="$SONAR_STAGE/Sonar.app"
 mkdir -p "$SONAR_APP/Contents/MacOS" "$SONAR_APP/Contents/Resources"
+ditto assets/zoom "$SONAR_APP/Contents/Resources/Zoom"
+ditto assets/gallery "$SONAR_APP/Contents/Resources/Gallery"
 cp assets/sonar.png "$SONAR_APP/Contents/Resources/SonarMark.png"
 SONAR_ICONSET="$SONAR_STAGE/Sonar.iconset"
 mkdir -p "$SONAR_ICONSET"
@@ -15,10 +17,15 @@ for size in 16 32 128 256 512; do
   sips -z "$double" "$double" "$SONAR_STAGE/DockIcon.png" --out "$SONAR_ICONSET/icon_${size}x${size}@2x.png" >/dev/null
 done
 iconutil -c icns "$SONAR_ICONSET" -o "$SONAR_APP/Contents/Resources/Sonar.icns"
-if [[ -n "${SONAR_PAPER_PATH:-}" ]]; then
-  cp "$SONAR_PAPER_PATH" "$SONAR_APP/Contents/Resources/SoundWave.pdf"
+# Bundle the reading paper; allow an explicit local replacement.
+SONAR_LOCAL_PAPER="${SONAR_PAPER_PATH:-assets/paper/SoundWave.pdf}"
+if [[ -f "$SONAR_LOCAL_PAPER" ]]; then
+  cp "$SONAR_LOCAL_PAPER" "$SONAR_APP/Contents/Resources/SoundWave.pdf"
+elif [[ -n "${SONAR_PAPER_PATH:-}" ]]; then
+  echo "PDF not found: $SONAR_PAPER_PATH" >&2
+  exit 1
 fi
-swiftc -O work/SonarLab/main.swift work/SonarLab/HardwareAudio.swift work/SonarLab/SystemScroll.swift work/SonarLab/DemoModes.swift work/SonarLab/WaveCalibration.swift work/SonarLab/ContentView.swift work/SonarLab/SignalView.swift work/SonarLab/AudioSignalView.swift work/SonarLab/Distance.swift work/SonarLab/Position.swift work/SonarLab/EchoFlowView.swift -o "$SONAR_APP/Contents/MacOS/SonarLab" -framework AppKit -framework SwiftUI -framework AVFoundation -framework Accelerate -framework CoreAudio -framework PDFKit -framework Carbon -framework ApplicationServices
+swiftc -O work/SonarLab/main.swift work/SonarLab/HardwareAudio.swift work/SonarLab/SystemScroll.swift work/SonarLab/DemoModes.swift work/SonarLab/WaveCalibration.swift work/SonarLab/ContentView.swift work/SonarLab/ControlModeView.swift work/SonarLab/SignalView.swift work/SonarLab/AudioSignalView.swift work/SonarLab/Distance.swift work/SonarLab/Position.swift work/SonarLab/EchoFlowView.swift work/SonarLab/Zoom.swift -o "$SONAR_APP/Contents/MacOS/SonarLab" -framework AppKit -framework SwiftUI -framework AVFoundation -framework Accelerate -framework CoreAudio -framework PDFKit -framework Carbon -framework ApplicationServices
 cat > "$SONAR_APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

@@ -36,18 +36,20 @@ final class PositionModel: ObservableObject {
 struct PositionView: View {
     @ObservedObject var model: PositionModel
     @ObservedObject var sonar: Sonar
+    @State private var showSettings = false
     var body: some View {
-        ScrollView {
-            VStack(alignment:.leading,spacing:16) {
-                TimelineView(.periodic(from:.now,by:0.1)) { _ in
-                    let fresh=sonar.running && ProcessInfo.processInfo.systemUptime-model.updated<0.4
-                    RangeCalibrationBanner(readings:[model.left,model.right],running:sonar.running,starting:sonar.starting,fresh:fresh)
-                    HStack {
-                        channel("Left · rising chirp",model.left,fresh:fresh)
-                        Spacer()
-                        channel("Right · falling chirp",model.right,fresh:fresh)
-                    }
-                    let point=fresh ? model.point : nil
+        TimelineView(.periodic(from:.now,by:0.1)) { _ in
+            let fresh=sonar.running && ProcessInfo.processInfo.systemUptime-model.updated<0.4
+            let point=fresh ? model.point : nil
+            ExperimentLayout(title:"Move your palm above the keyboard.",detail:"An approximate 2D position. Both speakers need a distinct echo.") {
+                HStack(spacing:24) {
+                    Label("Left",systemImage:"speaker.wave.2").foregroundStyle(.secondary)
+                    Text((fresh ? model.left.cm : nil).map { String(format:"≈ %.0f cm",$0) } ?? "— cm").monospacedDigit()
+                    Spacer()
+                    Label("Right",systemImage:"speaker.wave.2").foregroundStyle(.secondary)
+                    Text((fresh ? model.right.cm : nil).map { String(format:"≈ %.0f cm",$0) } ?? "— cm").monospacedDigit()
+                }
+            } stage: {
                     Canvas { context,size in
                         func project(_ x:Double,_ height:Double)->CGPoint {
                             CGPoint(x:size.width/2+x/80*(size.width-50),y:size.height-35-height/60*(size.height-70))
@@ -69,20 +71,23 @@ struct PositionView: View {
                         } else {
                             context.draw(Text("Waiting for two distinct echoes").font(.callout).foregroundColor(.gray),at:CGPoint(x:size.width/2,y:size.height/2))
                         }
-                    }.frame(height:250).background(Color(red:0.025,green:0.035,blue:0.05),in:RoundedRectangle(cornerRadius:16))
-                    Text(point.map { String(format:"Model estimate: %.0f cm sideways · %.0f cm high",$0.x,$0.height) } ?? "Looking for your hand…")
-                        .font(.callout).foregroundStyle(point == nil ? Color.secondary : Color.mint)
-                }
-                Text("Experimental 2D estimate · assumes a centered microphone.")
-                    .font(.caption).foregroundStyle(.orange).fixedSize(horizontal:false,vertical:true)
-                DisclosureGroup("Settings") {
+                    }.frame(minHeight:180,maxHeight:.infinity).background(Color(red:0.025,green:0.035,blue:0.05),in:RoundedRectangle(cornerRadius:16))
+            } actions: {
                 HStack {
-                    Stepper("Assumed speaker spacing: \(Int(model.span)) cm",value:$model.span,in:10...40,step:1)
-                    Spacer()
                     Button("Reset background") { sonar.stop(); sonar.start() }.disabled(!sonar.running)
+                    Button("Settings…") { showSettings.toggle() }.popover(isPresented:$showSettings) {
+                        VStack(alignment:.leading,spacing:16) {
+                            Text("Position model").font(.headline)
+                            Text("This estimate assumes a centered microphone.").foregroundStyle(.secondary)
+                            Stepper("Speaker spacing: \(Int(model.span)) cm",value:$model.span,in:10...40,step:1)
+                        }.padding(20).frame(width:340)
+                    }
+                    Spacer()
+                    Text(point.map { String(format:"x %.0f · y %.0f cm",$0.x,$0.height) } ?? "No position estimate").font(.callout).foregroundStyle(.secondary)
                 }
-                }
-            }.padding(24)
+            } status: {
+                RangeCalibrationBanner(readings:[model.left,model.right],running:sonar.running,starting:sonar.starting,fresh:fresh)
+            }
         }
     }
     private func channel(_ title:String,_ reading:RangeReading,fresh:Bool)->some View {

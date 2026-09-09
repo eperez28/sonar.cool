@@ -140,56 +140,39 @@ struct DistanceView: View {
     @ObservedObject var sonar: Sonar
     @State private var showReference = false
     var body: some View {
-        ScrollView {
-            VStack(alignment:.leading,spacing:18) {
-                TimelineView(.periodic(from:.now,by:0.1)) { _ in
-                    let now=ProcessInfo.processInfo.systemUptime
-                    let fresh=sonar.running && now-(model.frames.last?.time ?? 0)<0.4
-                    RangeCalibrationBanner(readings:[model.reading],running:sonar.running,starting:sonar.starting,fresh:fresh)
-                    HStack(alignment:.firstTextBaseline) {
-                        VStack(alignment:.leading,spacing:4) {
-                            Text(model.offset == nil ? "Live echo range" : "Live referenced estimate").font(.headline)
-                            HStack(alignment:.firstTextBaseline) {
-                                Text((fresh ? model.distance : nil).map { String(format:"≈ %.0f",$0) } ?? "—").font(.system(size:60,weight:.medium,design:.rounded)).monospacedDigit()
-                                Text("cm").foregroundStyle(.secondary)
-                            }
-                        }
-                        Spacer()
-                        VStack(alignment:.trailing,spacing:8) {
-                            Label(fresh ? "Receiving echoes" : "No live samples",systemImage:fresh ? "waveform" : "pause.circle").foregroundStyle(fresh ? Color.mint : Color.secondary)
-                            Text(!sonar.running ? "Press Start to measure" : !fresh ? "Waiting for audio" : model.reading.calibrating ? "Learning background · hands away" : model.reading.cm != nil ? "Distinct echo detected" : "No reliable distance yet").font(.caption).foregroundStyle(.secondary)
-                        }
-                    }
-                    RangeLivePlot(frames:model.frames,now:now,running:sonar.running)
-                }
+        TimelineView(.periodic(from:.now,by:0.1)) { _ in
+            let now=ProcessInfo.processInfo.systemUptime
+            let fresh=sonar.running && now-(model.frames.last?.time ?? 0)<0.4
+            ExperimentLayout(title:"Lift and lower your palm.",detail:"Echo range is an estimate, not your hand’s exact height.") {
                 HStack {
-                    Label("Distinct echo",systemImage:"circle.fill").foregroundStyle(.mint)
-                    Label("Unconfirmed echo",systemImage:"circle.dashed").foregroundStyle(.orange)
+                    Label("Echo range",systemImage:"ruler").foregroundStyle(.secondary)
                     Spacer()
-                    Text("Last 5 seconds").foregroundStyle(.secondary)
-                }.font(.caption)
-                Text("Lift and lower your palm above the keyboard. Echoes appear continuously; the number appears only when one is distinct enough to measure.").font(.callout).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+                    Text((fresh ? model.distance : nil).map { String(format:"≈ %.0f cm",$0) } ?? "— cm")
+                        .font(.title2.monospacedDigit())
+                }
+            } stage: {
+                RangeLivePlot(frames:model.frames,now:now,running:sonar.running)
+            } actions: {
                 HStack {
-                    if !sonar.running {
-                        Button(sonar.starting ? "Starting…" : "Start live measurement") { sonar.start() }.buttonStyle(.borderedProminent).controlSize(.large).disabled(sonar.starting)
-                    } else {
-                        Text(model.reading.status).font(.caption).foregroundStyle(.secondary)
-                        Spacer()
-                        Button("Clear background") { sonar.stop(); sonar.start() }
-                    }
-                }
-                Text("Centimeters here describe half the extra echo-path length, not your palm’s exact height. This live range estimate is experimental.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
-                DisclosureGroup("Optional: reference to a measured hand height",isExpanded:$showReference) {
-                    VStack(alignment:.leading,spacing:10) {
-                        Text("A ruler reference adds an offset for this hand position. It does not correct for room reflections or changing geometry.").font(.caption).foregroundStyle(.secondary)
-                        HStack {
+                    Button("Reset background") { sonar.stop(); sonar.start() }.disabled(!sonar.running)
+                    Button("Settings…") { showReference.toggle() }.popover(isPresented:$showReference) {
+                        VStack(alignment:.leading,spacing:16) {
+                            Text("Distance reference").font(.headline)
+                            Text("An optional ruler measurement adds an offset. It cannot correct room reflections.").font(.callout).foregroundStyle(.secondary)
                             Stepper("Measured height: \(Int(model.reference)) cm",value:$model.reference,in:10...50,step:5)
-                            Button("Use height") { if let cm=model.reading.cm { model.offset=model.reference-cm } }.disabled(!sonar.running || model.reading.cm == nil)
-                            if model.offset != nil { Button("Remove reference") { model.offset=nil } }
-                        }
-                    }.padding(.top,10)
-                }
-            }.padding(24)
+                            HStack {
+                                Button("Use height") { if let cm=model.reading.cm { model.offset=model.reference-cm } }.disabled(!sonar.running || model.reading.cm == nil)
+                                Button("Remove reference") { model.offset=nil }.disabled(model.offset == nil)
+                            }
+                        }.padding(20).frame(width:340)
+                    }
+                    Spacer()
+                    Label("Distinct",systemImage:"circle.fill").foregroundStyle(.mint)
+                    Label("Unconfirmed",systemImage:"circle.dashed").foregroundStyle(.orange)
+                }.font(.callout)
+            } status: {
+                RangeCalibrationBanner(readings:[model.reading],running:sonar.running,starting:sonar.starting,fresh:fresh)
+            }
         }
     }
 }
@@ -232,7 +215,7 @@ struct RangeLivePlot: View {
             if frames.isEmpty {
                 context.draw(Text("Live echoes will appear here").font(.callout).foregroundColor(.gray),at:CGPoint(x:size.width/2,y:size.height/2))
             }
-        }.frame(height:270).background(Color(red:0.025,green:0.035,blue:0.05),in:RoundedRectangle(cornerRadius:16))
+        }.frame(minHeight:180,maxHeight:.infinity).background(Color(red:0.025,green:0.035,blue:0.05),in:RoundedRectangle(cornerRadius:16))
         .accessibilityLabel("Live echo range over the last five seconds. Solid markers are distinct echoes; outlined markers are unconfirmed.")
     }
 }
@@ -286,7 +269,7 @@ struct RangeCalibrationBanner: View {
                 ProgressView().controlSize(.small)
                 Text("Waiting for clear audio · calibration paused")
             } else if let remaining {
-                Text("\(max(1,Int(ceil(remaining))))").font(.system(size:42,weight:.semibold,design:.rounded)).monospacedDigit().frame(width:48)
+                Text("\(max(1,Int(ceil(remaining))))").font(.system(size:24,weight:.semibold,design:.rounded)).monospacedDigit().frame(width:48)
                 VStack(alignment:.leading,spacing:6) {
                     Text("Calibrating · keep hands away").font(.headline)
                     ProgressView(value:max(0,min(1,1-remaining/3))).tint(.mint)
@@ -295,7 +278,7 @@ struct RangeCalibrationBanner: View {
                 Label("Ready · move your hand above the keyboard",systemImage:"checkmark.circle.fill").foregroundStyle(.mint)
             }
             Spacer(minLength:0)
-        }.padding(16).frame(maxWidth:.infinity,alignment:.leading)
+        }.padding(12).frame(maxWidth:.infinity,minHeight:48,maxHeight:48,alignment:.leading)
             .background(.mint.opacity(0.07),in:RoundedRectangle(cornerRadius:12))
     }
 }

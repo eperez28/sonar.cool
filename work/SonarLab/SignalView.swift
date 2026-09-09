@@ -32,6 +32,7 @@ final class SignalHistory: ObservableObject {
 
 struct SignalView: View {
     @ObservedObject var history: SignalHistory
+    @ObservedObject var sonar: Sonar
     @State private var style = "Flow"
     private var points: Bool { style == "Points" }
     @State private var height = 1.8
@@ -42,14 +43,13 @@ struct SignalView: View {
     @State private var frozen: [SignalFrame]?
     private var visible: [SignalFrame] { frozen ?? history.frames }
     var body: some View {
-        VStack(alignment:.leading,spacing:14) {
+        ExperimentLayout(title:"Move your hand and watch the signal.",detail:style == "Flow" ? "An illustration driven by sound changes, not measured sound paths." : "Sound changes over time, not a map of your hand’s position.") {
             HStack(spacing:12) {
-                Text(frozen == nil ? "Live signal" : "Frozen signal").font(.headline)
-                Spacer()
                 Picker("View",selection:$style) { Text("Flow").tag("Flow"); Text("Audio").tag("Audio"); Text("Surface").tag("Surface"); Text("Points").tag("Points") }.pickerStyle(.segmented).frame(width:285)
-                Button(frozen == nil ? "Freeze" : "Resume") { frozen = frozen == nil ? history.frames : nil }.disabled(visible.isEmpty && frozen == nil)
-                Button("Clear") { frozen = nil; history.clear() }
+                Spacer()
             }
+        } stage: {
+            VStack(spacing:12) {
             if style == "Flow" {
                 EchoFlowView(frames:visible,frozen:frozen != nil)
             } else if style == "Audio" {
@@ -67,8 +67,8 @@ struct SignalView: View {
                     let u = (x-0.5)*1.35, v = (age-0.5)*0.8
                     let horizontal = u*cos(yaw)-v*sin(yaw)
                     let depth = u*sin(yaw)+v*cos(yaw)
-                    let scale = min(size.width*0.62,size.height*1.05)*zoom
-                    return CGPoint(x:size.width/2+horizontal*scale,y:size.height*0.65-depth*scale*tilt-z*scale*0.50*height)
+                    let scale = min(size.width*0.62,size.height*0.65)*zoom
+                    return CGPoint(x:size.width/2+horizontal*scale,y:size.height*0.52-depth*scale*tilt-z*scale*0.50*height)
                 }
                 func color(_ x:Double) -> Color { x < 0.5 ? .cyan : .orange }
                 // Sparse neutral grid keeps low-energy noise from filling the surface.
@@ -118,7 +118,7 @@ struct SignalView: View {
                 yaw = max(-0.8,min(0.8,Double(dragStart?.width ?? CGFloat(yaw))+Double(value.translation.width)/400))
                 tilt = max(0.25,min(1.0,Double(dragStart?.height ?? CGFloat(tilt))-Double(value.translation.height)/300))
             }.onEnded { _ in dragStart = nil })
-            .frame(minHeight:230)
+            .frame(minHeight:100)
             HStack(spacing:14) {
                 Text("Height").font(.caption)
                 Slider(value:$height,in:0.5...4).frame(width:100).accessibilityLabel("Signal height")
@@ -127,8 +127,17 @@ struct SignalView: View {
                 Spacer()
                 Button("Reset view") { yaw = -0.25; tilt = 0.65; zoom = 1; height = 1.8 }
             }
-            Text("Height shows relative reflected energy. This is a frequency–time plot, not a map of object positions or distances.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             }
-        }.padding(24)
+            }
+        } actions: {
+            HStack {
+                Button(frozen == nil ? "Freeze" : "Resume") { frozen = frozen == nil ? history.frames : nil }.disabled(visible.isEmpty && frozen == nil)
+                Button("Clear") { frozen = nil; history.clear() }
+                Spacer()
+                Text(frozen != nil ? "Display frozen" : sonar.running ? "Live" : "Stopped").font(.caption).foregroundStyle(.secondary)
+            }.frame(height:32)
+        } status: {
+            ExperimentStatus(text:frozen != nil ? "Display frozen · Resume to see new samples" : sonar.starting ? "Starting microphone…" : sonar.running ? sonar.status : "Press Start, then move your hand above the keyboard",symbol:frozen != nil ? "pause.circle" : "waveform")
+        }
     }
 }

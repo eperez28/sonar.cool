@@ -46,8 +46,34 @@ final class GlobalControls {
     }
 }
 
-final class ChromeGallery {
-    static var frontmost: Bool { NSWorkspace.shared.frontmostApplication?.bundleIdentifier == "com.google.Chrome" }
+enum AppControlTarget {
+    static let browserIDs: Set<String> = Set(NSWorkspace.shared.urlsForApplications(toOpen:URL(string:"https://example.com")!).compactMap { Bundle(url:$0)?.bundleIdentifier }).subtracting(["com.openai.codex"])
+    static var lastPID: pid_t?
+    static var observer: NSObjectProtocol?
+    static func supports(_ app: NSRunningApplication) -> Bool {
+        app.activationPolicy == .regular && app.processIdentifier != ProcessInfo.processInfo.processIdentifier
+    }
+    static func observe() {
+        guard observer == nil else { return }
+        if let app=NSWorkspace.shared.frontmostApplication, supports(app) { lastPID=app.processIdentifier }
+        observer=NSWorkspace.shared.notificationCenter.addObserver(forName:NSWorkspace.didActivateApplicationNotification,object:nil,queue:.main) { note in
+            if let app=note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication, supports(app) { lastPID=app.processIdentifier }
+        }
+    }
+    static var frontmost: Bool {
+        guard let app=NSWorkspace.shared.frontmostApplication, supports(app) else { return false }
+        lastPID=app.processIdentifier
+        return true
+    }
+    static var preferred: NSRunningApplication? {
+        if frontmost { return NSWorkspace.shared.frontmostApplication }
+        guard let lastPID, let app=NSRunningApplication(processIdentifier:lastPID), supports(app) else { return nil }
+        return app
+    }
+}
+
+final class AppSwipe {
+    static var frontmost: Bool { AppControlTarget.frontmost }
     static func keyEvents(next: Bool) -> [CGEvent] {
         let key = CGKeyCode(next ? kVK_RightArrow : kVK_LeftArrow)
         return [true,false].compactMap { down in
@@ -57,8 +83,8 @@ final class ChromeGallery {
     }
     static func send(next: Bool) -> Bool {
         guard AXIsProcessTrusted(), let app = NSWorkspace.shared.frontmostApplication,
-              app.bundleIdentifier == "com.google.Chrome" else { return false }
-        // Avoid moving the caret in Chrome's address bar, chat, or form fields.
+              AppControlTarget.supports(app) else { return false }
+        // Avoid moving the caret in an address bar, chat, or form fields.
         var focused: CFTypeRef?
         let root = AXUIElementCreateApplication(app.processIdentifier)
         guard AXUIElementCopyAttributeValue(root,kAXFocusedUIElementAttribute as CFString,&focused) == .success,

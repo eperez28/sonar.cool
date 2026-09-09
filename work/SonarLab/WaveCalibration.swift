@@ -122,9 +122,9 @@ func testWaveCalibration() {
         testCheck(fired == [expected,expected],"Paused return stroke triggered gallery navigation")
         testCheck(times.count == 2 && times[0] <= 0.38,"Protected gallery lost its faster initial response")
     }
-    let events = ChromeGallery.keyEvents(next:true)
+    let events = AppSwipe.keyEvents(next:true)
     testCheck(events.count == 2 && events[0].type == .keyDown && events[1].type == .keyUp)
     testCheck(events[0].getIntegerValueField(.keyboardEventKeycode) == 124)
-    testCheck(ChromeGallery.keyEvents(next:false)[0].getIntegerValueField(.keyboardEventKeycode) == 123)
+    testCheck(AppSwipe.keyEvents(next:false)[0].getIntegerValueField(.keyboardEventKeycode) == 123)
     print("PASS immediate waves without training, both directions, return suppression, ambiguous motion rejection, Chrome key encoding")
 }

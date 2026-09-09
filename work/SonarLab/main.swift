@@ -96,11 +96,23 @@ final class Reader: ObservableObject {
     let signal = SignalHistory()
     @Published var mode: DemoMode = .scroll { didSet { demo.wave.cancel(); resetMotion(); demo.feedback = "Start, stay still for 3 seconds, then try a gesture."; demo.inputFeedback = "Waiting for audio" } }
     @Published var chromeGallery = false { didSet { demo.wave.cancel(); resetMotion() } }
-    var usesExternalControl: Bool { usesSystemScroll || (mode == .gallery && chromeGallery) }
+    var usesExternalControl: Bool { (mode == .zoom && !zoomPractice) || usesSystemScroll || (mode == .gallery && chromeGallery) }
     var usesSystemScroll: Bool { mode == .scroll && systemWide }
     @Published var action = "Lift to scroll · lower to reset"
     @Published private(set) var forward = true
     @Published private(set) var directionChanges = 0
+    @Published var zoomPractice = true
+    @Published var zoomScale = 1.0
+    func practiceZoom(_ action: Int) {
+        zoomMotion.steps = action > 0 ? 3 : action == 0 ? 0 : max(0,zoomMotion.steps-1)
+        zoomScale = [1.0,1.15,1.3,1.5][zoomMotion.steps]
+        zoomIndicator = action > 0 ? "+" : "−"
+    }
+    @Published var zoomReversed = false { didSet { zoomMotion.clearEvidence() } }
+    @Published var zoomIndicator = "100%"
+    @Published var zoomFeedback = "Open a photo or page in another app, then Start."
+    private var zoomMotion = ZoomMotion()
+    private var zoomPID: pid_t = 0
     private var motion = ScrollMotion()
     private var taps = DoublePushDetector()
     @Published var airTapEnabled = true { didSet { resetMotion() } }
@@ -112,12 +124,12 @@ final class Reader: ObservableObject {
     private var targetPID: pid_t = 0
     private var permissionObserver: NSObjectProtocol?
     private var permissionTimer: Timer?
-    func testChrome(next: Bool) {
-        guard let chrome = NSRunningApplication.runningApplications(withBundleIdentifier:"com.google.Chrome").first else { demo.feedback = "Open Chrome first"; return }
+    func testAppSwipe(next: Bool) {
+        guard let chrome = AppControlTarget.preferred else { demo.feedback = "Open the app you want to control first"; return }
         chrome.activate(options:[])
         DispatchQueue.main.asyncAfter(deadline:.now()+0.6) { [weak self] in
-            let sent = ChromeGallery.send(next:next)
-            self?.demo.feedback = sent ? "Chrome arrow sent · verify the image changed" : "Chrome paused · focus a gallery outside text fields"
+            let sent = AppSwipe.send(next:next)
+            self?.demo.feedback = sent ? "Arrow sent · verify the image changed" : "Paused · focus a gallery outside text fields"
         }
     }
     func refreshPermission() { accessibilityGranted = AXIsProcessTrusted() }
@@ -130,13 +142,16 @@ final class Reader: ObservableObject {
         }
     }
     private var canScroll: Bool {
-        if mode == .gallery && chromeGallery { return NSApp.isActive || (accessibilityGranted && ChromeGallery.frontmost && demo.wave.recording == nil) }
+        if mode == .zoom { return zoomPractice ? NSApp.isActive : accessibilityGranted && AppZoom.frontmost }
+        if mode == .gallery && chromeGallery { return NSApp.isActive || (accessibilityGranted && AppSwipe.frontmost && demo.wave.recording == nil) }
         return usesSystemScroll ? accessibilityGranted && !NSApp.isActive : NSApp.isActive
     }
     private var ticker: Timer?
     private var lastTick = 0.0
     func startMotion() {
         stopMotion()
+        demo.lastNavigation = "↔"; zoomIndicator = "100%"
+        zoomFeedback = zoomPractice ? "Push toward the screen to zoom in" : "Bring the app you want to zoom to the front"
         demo.wave.live = true
         signal.clear()
         trace = ["time\tdirection\tstrength\tfeedback\ttoggles"]
@@ -145,6 +160,8 @@ final class Reader: ObservableObject {
         RunLoop.main.add(t,forMode:.common); ticker = t
     }
     func stopMotion() {
+        if !zoomPractice && zoomMotion.enlarged && AppZoom.pid == zoomPID { _ = AppZoom.send(enlarge:false) }
+        zoomMotion = ZoomMotion(); zoomPID = 0; zoomScale = 1
         demo.wave.live = false
         demo.wave.cancel()
         ticker?.invalidate(); ticker = nil
@@ -172,9 +189,10 @@ final class Reader: ObservableObject {
         if gestureFeedback != feedback { gestureFeedback = feedback }
     }
     init() {
+        AppControlTarget.observe()
         demo.galleryOutput = { [weak self] event in
             guard let self, self.chromeGallery, !NSApp.isActive else { return nil }
-            return ChromeGallery.send(next:event == "next")
+            return AppSwipe.send(next:event == "next")
         }
         let poll = Timer(timeInterval:1,repeats:true) { [weak self] _ in self?.refreshPermission() }
         RunLoop.main.add(poll,forMode:.common); permissionTimer = poll
@@ -205,6 +223,18 @@ final class Reader: ObservableObject {
         pdf.documentView?.enclosingScrollView
     }
     func consume(_ reading: Reading, duration: Double) {
+        if mode == .zoom {
+            let pid = zoomPractice ? ProcessInfo.processInfo.processIdentifier : AppZoom.pid
+            guard canScroll else { zoomMotion.clearEvidence(); zoomFeedback = zoomPractice ? "Bring Sonar to the front" : "Paused · bring another app to the front"; return }
+            if zoomPID != pid { zoomMotion = ZoomMotion(); zoomPID = pid }
+            let previousZoom = zoomMotion
+            if let zoomAction = zoomMotion.feed(reading, now:ProcessInfo.processInfo.systemUptime, reversed:zoomReversed) {
+                if zoomPractice || AppZoom.send(action:zoomAction) {
+                    if zoomPractice { zoomScale = [1.0,1.15,1.3,1.5][zoomMotion.steps] }; zoomIndicator = zoomAction > 0 ? "+" : "−"; zoomFeedback = zoomAction > 0 ? "Zoomed in · pull back to reset" : zoomAction == 0 ? "Zoom return sent · push to zoom" : "Zooming out · keep pulling back" }
+                else { zoomMotion = previousZoom; zoomFeedback = "Paused · click the photo or page outside text fields" }
+            }
+            return
+        }
         guard canScroll else { resetMotion(); return }
         let now = ProcessInfo.processInfo.systemUptime
         if mode == .signal { signal.append(reading,now:now); return }
@@ -500,10 +530,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         guard statusItem != nil else { return }
         let permission = !sonar.reader.usesExternalControl || sonar.reader.accessibilityGranted
         if sonar.running {
-            let direction = sonar.reader.mode == .scroll ? (sonar.reader.forward ? "↓" : "↑") : sonar.reader.mode.rawValue
-            let hint = sonar.reader.gestureFeedback == "1 push · push again" ? " · 1" : (sonar.reader.gestureFeedback == "Direction switched" ? " ✓" : "")
+            let direction: String
+            switch sonar.reader.mode {
+            case .scroll: direction = sonar.reader.forward ? "↓" : "↑"
+            case .gallery: direction = sonar.reader.demo.lastNavigation
+            case .zoom: direction = sonar.reader.zoomIndicator
+            default: direction = sonar.reader.mode.rawValue
+            }
+            let hint = sonar.reader.mode != .scroll ? "" : sonar.reader.gestureFeedback == "1 push · push again" ? " · 1" : (sonar.reader.gestureFeedback == "Direction switched" ? " ✓" : "")
             statusItem.button?.title = " \(direction)\(hint)"
-            menuState.title = sonar.status.contains("Calibrating") ? "Calibrating — stay still" : (sonar.reader.mode == .gallery ? sonar.reader.gestureFeedback : "Running · \(direction) · until stopped")
+            menuState.title = sonar.status.contains("Calibrating") ? "Calibrating — stay still" : (sonar.reader.mode == .gallery ? "Swipe · \(sonar.reader.demo.feedback)" : sonar.reader.mode == .zoom ? "Zoom · \(sonar.reader.zoomFeedback)" : "Running · \(direction) · until stopped")
         } else if sonar.starting {
             statusItem.button?.title = " …"; menuState.title = "Starting audio…"
         } else if !permission {
@@ -560,6 +596,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         statusItem.menu = statusMenu
         // Defer until @Published has committed its value before reading the model.
         sonar.objectWillChange.sink { [weak self] _ in DispatchQueue.main.async { self?.updateStatusMenu() } }.store(in:&subscriptions)
+        sonar.reader.demo.objectWillChange.sink { [weak self] _ in DispatchQueue.main.async { self?.updateStatusMenu() } }.store(in:&subscriptions)
         sonar.reader.objectWillChange.sink { [weak self] _ in DispatchQueue.main.async { self?.updateStatusMenu() } }.store(in:&subscriptions)
         updateStatusMenu()
         let menu = NSMenu(); let item = NSMenuItem(); menu.addItem(item)
@@ -643,6 +680,7 @@ if CommandLine.arguments.contains("--self-test") {
     testEchoFlow()
     testPosition()
     testDistance()
+    testZoomMotion()
     testDemoModes()
     testWaveCalibration()
     for rate in [48000.0,96000.0] {

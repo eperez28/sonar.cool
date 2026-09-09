@@ -12,7 +12,6 @@ struct AudioSignalView: View {
                 Spacer()
                 Text(frozen ? "Display paused · audio continues" : "Last 5 seconds").foregroundStyle(.secondary)
             }.font(.caption)
-            Text("The steady line is the tone. Hand movement spreads energy above and below it.")
                 .font(.caption).foregroundStyle(.secondary)
             Canvas { context,size in
                 let plot = CGRect(x:62,y:12,width:max(1,size.width-76),height:max(1,size.height-38))
@@ -40,7 +39,7 @@ struct AudioSignalView: View {
                 }
                 context.draw(Text("5 seconds ago").font(.caption2).foregroundColor(.gray),at:CGPoint(x:plot.minX+40,y:size.height-10))
                 context.draw(Text("Now").font(.caption2).foregroundColor(.gray),at:CGPoint(x:plot.maxX-14,y:size.height-10))
-            }.background(background).clipShape(RoundedRectangle(cornerRadius:12)).frame(minHeight:180)
+            }.background(background).clipShape(RoundedRectangle(cornerRadius:12)).frame(minHeight:80)
             HStack {
                 Text("Quiet").foregroundStyle(.secondary)
                 LinearGradient(colors:[Color(hue:0.69,saturation:0.9,brightness:0.1),.blue,.cyan,.green,.yellow],startPoint:.leading,endPoint:.trailing).frame(width:100,height:6).clipShape(Capsule())
@@ -66,8 +65,7 @@ struct AudioSignalView: View {
                     if index == 0 { path.move(to:point) } else { path.addLine(to:point) }
                 }
                 context.stroke(path,with:.color(.cyan),lineWidth:1)
-            }.padding(12).frame(height:100).background(background).clipShape(RoundedRectangle(cornerRadius:12))
-            Text("Waveform includes all captured microphone audio. Spectrogram brightness is relative to the tone; neither view measures sound pressure. Audio stays in memory.")
+            }.padding(12).frame(height:60).background(background).clipShape(RoundedRectangle(cornerRadius:12))
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
         }
     }
