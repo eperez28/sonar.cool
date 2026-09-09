@@ -164,6 +164,7 @@ struct ExperimentStatus: View {
 
 enum ScreenLayout {
     static let width: CGFloat = 880
+    static let previewWidth: CGFloat = 568
     static let previewHeight: CGFloat = 320
     static let spacing: CGFloat = 24
     static let inset: CGFloat = 32

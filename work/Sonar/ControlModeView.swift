@@ -83,9 +83,8 @@ struct ControlModeView: View {
                 options
             }
             GeometryReader { space in
-                let ratio = previewImage.map { $0.size.width / max(1,$0.size.height) } ?? 1.5
-                let width = reader.mode == .scroll ? space.size.width : min(space.size.width,max(1,space.size.height) * ratio)
-                let height = reader.mode == .scroll ? space.size.height : width / ratio
+                let width = min(space.size.width, ScreenLayout.previewWidth)
+                let height = ScreenLayout.previewHeight
                 stage.frame(width:width,height:height)
                     .clipShape(RoundedRectangle(cornerRadius:12))
                     .overlay(RoundedRectangle(cornerRadius:12).strokeBorder(.primary.opacity(0.08)))
@@ -118,7 +117,7 @@ struct ControlModeView: View {
         } else {
             GeometryReader { geometry in
                 ZStack {
-                    Color.black
+                    Color(nsColor:.controlBackgroundColor)
                     if let photo = previewImage {
                         Image(nsImage:photo).resizable().scaledToFit()
                             .frame(width:geometry.size.width,height:geometry.size.height)
