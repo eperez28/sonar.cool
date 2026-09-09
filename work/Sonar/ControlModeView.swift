@@ -46,12 +46,26 @@ struct ControlModeView: View {
                 if reader.mode == .zoom {
                     Button("Watch the push / pull gesture") { showZoomHelp = true }
                         .sheet(isPresented:$showZoomHelp) {
-                            VStack(alignment:.leading,spacing:16) {
-                                Text("Push and pull to zoom").font(.title2.weight(.semibold))
+                            VStack(spacing:0) {
+                                HStack {
+                                    Text("Push and pull to zoom").font(.title2.weight(.semibold))
+                                    Spacer()
+                                    Button { showZoomHelp = false } label: {
+                                        Image(systemName:"xmark").font(.system(size:13,weight:.semibold)).frame(width:28,height:28)
+                                    }.buttonStyle(.borderless).accessibilityLabel("Close gesture guide")
+                                }.padding(20)
                                 Text("Push toward the screen to zoom in. Pull back toward yourself to zoom out.")
-                                ZoomGesturePreview().frame(width:360,height:420)
-                                Button("Done") { showZoomHelp = false }.keyboardShortcut(.cancelAction)
-                            }.padding(24)
+                                    .font(.callout).foregroundStyle(.secondary)
+                                    .frame(maxWidth:.infinity,alignment:.leading).padding(.horizontal,20).padding(.bottom,16)
+                                ZoomGesturePreview().frame(width:240,height:360).clipped()
+                                    .clipShape(RoundedRectangle(cornerRadius:10)).padding(.bottom,20)
+                                Divider()
+                                HStack {
+                                    Spacer()
+                                    Button("Done") { showZoomHelp = false }
+                                        .keyboardShortcut(.cancelAction).buttonStyle(.borderedProminent).controlSize(.large)
+                                }.padding(16)
+                            }.frame(width:440).background(Color(nsColor:.windowBackgroundColor))
                         }
                 }
                 Divider()
@@ -158,9 +172,13 @@ struct ControlModeView: View {
     }
 }
 
+private final class ContainedGestureImageView: NSImageView {
+    override var intrinsicContentSize: NSSize { NSSize(width:NSView.noIntrinsicMetric,height:NSView.noIntrinsicMetric) }
+}
+
 private struct ZoomGesturePreview: NSViewRepresentable {
     func makeNSView(context:Context) -> NSImageView {
-        let view = NSImageView()
+        let view = ContainedGestureImageView()
         view.imageScaling = .scaleProportionallyUpOrDown
         view.animates = true
         if let url = Bundle.main.url(forResource:"push-pull",withExtension:"gif",subdirectory:"Zoom") {
