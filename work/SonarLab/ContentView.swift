@@ -3,14 +3,12 @@ import SwiftUI
 
 extension DemoMode {
     var symbol: String {
-        switch self { case .scroll: return "scroll"; case .gallery: return "photo.on.rectangle"; case .blocks: return "square.grid.3x3"; case .presence: return "figure.walk"; case .position: return "scope"; case .distance: return "ruler"; case .signal: return "waveform.path" }
+        switch self { case .scroll: return "scroll"; case .gallery: return "photo.on.rectangle"; case .position: return "scope"; case .distance: return "ruler"; case .signal: return "waveform.path" }
     }
     var subtitle: String {
         switch self {
         case .scroll: return "Read with a lift of your hand."
         case .gallery: return "Browse images with a wave."
-        case .blocks: return "Play with motion."
-        case .presence: return "Try an away-and-return preview."
         case .position: return "Experimental two-speaker positioning."
         case .distance: return "Explore acoustic distance measurement."
         case .signal: return "See the sound your hand reflects."
@@ -32,13 +30,18 @@ struct ContentView: View {
     var body: some View {
         HStack(spacing:0) {
             VStack(alignment:.leading,spacing:0) {
-                Label("Sonar",systemImage:"wave.3.right").font(.system(size:20,weight:.semibold)).padding(22)
+                HStack(spacing:10) {
+                    if let url = Bundle.main.url(forResource:"SonarMark",withExtension:"png"), let mark = NSImage(contentsOf:url) {
+                        Image(nsImage:mark).resizable().scaledToFit().frame(width:36,height:36).clipShape(RoundedRectangle(cornerRadius:8))
+                    }
+                    Text("Sonar").font(.system(size:20,weight:.semibold))
+                }.padding(22)
                 List(selection:selection) {
                     Section("CONTROLS") {
                         ForEach([DemoMode.scroll,.gallery]) { mode in Label(mode.rawValue,systemImage:mode.symbol).tag(mode) }
                     }
                     Section("EXPERIMENTS") {
-                        ForEach([DemoMode.blocks,.presence,.signal,.distance,.position]) { mode in Label(mode.rawValue,systemImage:mode.symbol).tag(mode) }
+                        ForEach([DemoMode.signal,.distance,.position]) { mode in Label(mode.rawValue,systemImage:mode.symbol).tag(mode) }
                     }
                 }.listStyle(.sidebar)
                 VStack(alignment:.leading,spacing:14) {

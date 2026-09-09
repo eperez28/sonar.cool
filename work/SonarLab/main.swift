@@ -160,7 +160,7 @@ final class Reader: ObservableObject {
         guard canScroll else { resetMotion(); return }
         let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? 0
         if usesExternalControl && pid != targetPID { targetPID = pid; resetMotion(); return }
-        if mode != .scroll { demo.tick(dt,mode:mode); return }
+        if mode != .scroll { return }
         let delta = motion.step(dt:dt,now:now)
         if abs(delta)>0.01 {
             if systemWide { systemScroll.scroll(delta) } else { scroll(points:CGFloat(delta)) }
@@ -480,21 +480,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     private let menuStop = NSMenuItem(title:"Stop · ⌃⌥⌘Space",action:nil,keyEquivalent:"")
     private let menuPermission = NSMenuItem(title:"Accessibility settings…",action:nil,keyEquivalent:"")
     func menuWillOpen(_ menu: NSMenu) { sonar.reader.refreshPermission(); updateStatusMenu() }
+    // A continuous analemma keeps the two unequal loops legible at menu-bar size.
+    private func menuMark() -> NSImage {
+        let image = NSImage(size:NSSize(width:20,height:20),flipped:false) { _ in
+            let path = NSBezierPath()
+            path.move(to:NSPoint(x:8.5,y:8))
+            path.curve(to:NSPoint(x:16.5,y:17),controlPoint1:NSPoint(x:9,y:13),controlPoint2:NSPoint(x:10.5,y:20))
+            path.curve(to:NSPoint(x:8.5,y:8),controlPoint1:NSPoint(x:23,y:11),controlPoint2:NSPoint(x:13,y:9))
+            path.curve(to:NSPoint(x:3,y:3),controlPoint1:NSPoint(x:4,y:7),controlPoint2:NSPoint(x:0,y:5))
+            path.curve(to:NSPoint(x:8.5,y:8),controlPoint1:NSPoint(x:7,y:0),controlPoint2:NSPoint(x:8,y:4))
+            path.lineWidth = 1.7; path.lineCapStyle = .round; path.lineJoinStyle = .round
+            NSColor.black.setStroke(); path.stroke()
+            return true
+        }
+        image.isTemplate = true
+        return image
+    }
     private func updateStatusMenu() {
         guard statusItem != nil else { return }
         let permission = !sonar.reader.usesExternalControl || sonar.reader.accessibilityGranted
         if sonar.running {
             let direction = sonar.reader.mode == .scroll ? (sonar.reader.forward ? "↓" : "↑") : sonar.reader.mode.rawValue
             let hint = sonar.reader.gestureFeedback == "1 push · push again" ? " · 1" : (sonar.reader.gestureFeedback == "Direction switched" ? " ✓" : "")
-            statusItem.button?.title = "Sonar \(direction)\(hint)"
+            statusItem.button?.title = " \(direction)\(hint)"
             menuState.title = sonar.status.contains("Calibrating") ? "Calibrating — stay still" : (sonar.reader.mode == .gallery ? sonar.reader.gestureFeedback : "Running · \(direction) · until stopped")
         } else if sonar.starting {
-            statusItem.button?.title = "Sonar …"; menuState.title = "Starting audio…"
+            statusItem.button?.title = " …"; menuState.title = "Starting audio…"
         } else if !permission {
-            statusItem.button?.title = "Sonar !"
+            statusItem.button?.title = " !"
             menuState.title = "Blocked: macOS has not granted this build access"
         } else {
-            statusItem.button?.title = "Sonar ○"
+            statusItem.button?.title = ""
             menuState.title = sonar.status
         }
         statusItem.button?.toolTip = menuState.title
@@ -523,7 +539,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         }
         sonar.globalControlsReady = globalControls.install()
         statusItem = NSStatusBar.system.statusItem(withLength:NSStatusItem.variableLength)
-        statusItem.button?.title = "Sonar ○"
+        statusItem.button?.image = menuMark()
+        statusItem.button?.imagePosition = .imageLeading
+        statusItem.button?.setAccessibilityLabel("Sonar")
+        if let url = Bundle.main.url(forResource:"Sonar",withExtension:"icns") {
+            NSApp.applicationIconImage = NSImage(contentsOf:url)
+        }
+        statusItem.button?.title = ""
         let statusMenu = NSMenu(); statusMenu.autoenablesItems = false; statusMenu.delegate = self
         menuState.isEnabled = false; statusMenu.addItem(menuState)
         statusMenu.addItem(.separator())

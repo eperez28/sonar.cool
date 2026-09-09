@@ -1,5 +1,7 @@
 # Sonar
 
+<p align="center"><img src="assets/sonar.png" alt="Sonar’s rainbow analemma logomark" width="240"></p>
+
 Control your Mac by moving your hand above the keyboard. Sonar plays a high-frequency tone through the built-in speakers and listens for changes in its reflection. No camera or wearable required.
 
 **Experimental.** Scrolling and gallery navigation have worked on the development Mac. Accuracy varies with your hand movement, Mac, and room. This isn't a finished replacement for your trackpad.
@@ -9,7 +11,7 @@ Control your Mac by moving your hand above the keyboard. Sonar plays a high-freq
 - **Scroll:** lift your palm to scroll, then lower it to reset. Two short downward pushes switch direction. Works in the practice reader or other apps with Accessibility access.
 - **Gallery:** sweep sideways to send left/right arrow keys to Chrome, or browse the built-in gallery. Use **Reverse directions** to match your preferred movement. Chrome needs to be in front, with an image viewer open that accepts arrow keys. Return strokes can still cause mistakes.
 - **Signal:** watch the microphone signal and how it changes as you move. The flowing waves are an illustration driven by the signal, not a picture of your hand.
-- **Other experiments:** Blocks, Presence, Distance, and Position are works in progress. Distance and Position do not provide dependable hand height, 3D tracking, or a spatial point cloud.
+- **Other experiments:** Distance and Position are works in progress. Distance and Position do not provide dependable hand height, 3D tracking, or a spatial point cloud.
 
 Sonar senses movement toward and away from the audio hardware. Sideways gestures are inferred from that signal; it doesn't recognize fingers or reliably know your hand's physical position.
 

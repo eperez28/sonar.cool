@@ -5,6 +5,16 @@ SONAR_STAGE=$(mktemp -d /private/tmp/sonarlab-build.XXXXXX)
 trap 'rm -rf "$SONAR_STAGE"' EXIT
 SONAR_APP="$SONAR_STAGE/SonarLab.app"
 mkdir -p "$SONAR_APP/Contents/MacOS" "$SONAR_APP/Contents/Resources"
+cp assets/sonar.png "$SONAR_APP/Contents/Resources/SonarMark.png"
+SONAR_ICONSET="$SONAR_STAGE/Sonar.iconset"
+mkdir -p "$SONAR_ICONSET"
+swift script/render_icon.swift assets/sonar.png "$SONAR_STAGE/DockIcon.png"
+for size in 16 32 128 256 512; do
+  sips -z "$size" "$size" "$SONAR_STAGE/DockIcon.png" --out "$SONAR_ICONSET/icon_${size}x${size}.png" >/dev/null
+  double=$((size * 2))
+  sips -z "$double" "$double" "$SONAR_STAGE/DockIcon.png" --out "$SONAR_ICONSET/icon_${size}x${size}@2x.png" >/dev/null
+done
+iconutil -c icns "$SONAR_ICONSET" -o "$SONAR_APP/Contents/Resources/Sonar.icns"
 if [[ -n "${SONAR_PAPER_PATH:-}" ]]; then
   cp "$SONAR_PAPER_PATH" "$SONAR_APP/Contents/Resources/SoundWave.pdf"
 fi
@@ -17,6 +27,7 @@ cat > "$SONAR_APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleIdentifier</key><string>com.emanuel.sonarlab</string>
 <key>CFBundleName</key><string>Sonar</string>
 <key>CFBundleDisplayName</key><string>Sonar</string>
+<key>CFBundleIconFile</key><string>Sonar.icns</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>NSPrincipalClass</key><string>NSApplication</string>
@@ -55,9 +66,18 @@ if [[ -d "$SONAR_INSTALLED_APP" && "$SONAR_SIGNING_IDENTITY" == "-" ]] && codesi
 fi
 pkill -x SonarLab >/dev/null 2>&1 || true
 mkdir -p "$(dirname "$SONAR_INSTALLED_APP")"
-ditto --noextattr --norsrc "$SONAR_APP" "$SONAR_INSTALLED_APP"
-xattr -cr "$SONAR_INSTALLED_APP"
-codesign --verify --strict "$SONAR_INSTALLED_APP"
+# Save the existing bundle, then install into an empty destination. Merging
+# bundles leaves removed resources behind and invalidates the new signature.
+SONAR_BACKUP="$(mktemp -d "$(dirname "$SONAR_INSTALLED_APP")/.sonar-backup.XXXXXX")"
+if [[ -e "$SONAR_INSTALLED_APP" ]]; then mv "$SONAR_INSTALLED_APP" "$SONAR_BACKUP/Previous.app"; fi
+if ! (ditto --noextattr --norsrc "$SONAR_APP" "$SONAR_INSTALLED_APP" &&
+      xattr -cr "$SONAR_INSTALLED_APP" && codesign --verify --strict "$SONAR_INSTALLED_APP"); then
+  rm -rf "$SONAR_INSTALLED_APP"
+  if [[ -e "$SONAR_BACKUP/Previous.app" ]]; then mv "$SONAR_BACKUP/Previous.app" "$SONAR_INSTALLED_APP"; fi
+  rmdir "$SONAR_BACKUP"
+  exit 1
+fi
+rm -rf "$SONAR_BACKUP"
 if [[ "${1:-}" == "--verify-scroll" || "${1:-}" == "--verify-audio" ]]; then
   open -n "$SONAR_INSTALLED_APP" --args "$1"
 else
