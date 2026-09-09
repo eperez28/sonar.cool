@@ -43,6 +43,7 @@ struct ControlModeView: View {
         }
     }
     private var feedback: String {
+        if sonar.starting { return "Starting audio…" }
         if !sonar.running { return "Ready when you are" }
         if sonar.status.contains("Calibrating") { return sonar.status }
         switch reader.mode {
@@ -53,18 +54,43 @@ struct ControlModeView: View {
     }
     var body: some View {
         VStack(alignment:.leading,spacing:16) {
+            VStack(alignment:.leading,spacing:18) {
+                HStack {
+                    Text("Where would you like to use it?").font(.headline)
+                    Spacer()
+                    Picker("Use control in",selection:destination) {
+                        Text("Practice here").tag(true)
+                        Text("Other apps").tag(false)
+                    }.labelsHidden().pickerStyle(.segmented).frame(width:270)
+                }
+                Text(instruction).font(.system(size:19,weight:.medium)).fixedSize(horizontal:false,vertical:true)
+                Text(practice ? "Try the gesture in the preview below." : "Open your target app first. Start here, then switch to it during the countdown.")
+                    .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+                Divider()
+                HStack(spacing:16) {
+                    VStack(alignment:.leading,spacing:4) {
+                        Text(sonar.starting || sonar.running ? feedback : "Keep your hand still for the 3-second countdown")
+                            .font(.callout.weight(.medium)).fixedSize(horizontal:false,vertical:true)
+                        Text(sonar.running ? "Stop anytime with ⌃⌥⌘Space" : "Then move your hand above the keyboard.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if sonar.starting { ProgressView().controlSize(.small) }
+                    Button {
+                        if sonar.running || sonar.starting { sonar.stop() } else { sonar.start() }
+                    } label: {
+                        Label(sonar.running || sonar.starting ? "Stop" : "Start \(reader.mode.rawValue)",systemImage:sonar.running || sonar.starting ? "stop.fill" : "play.fill")
+                            .frame(minWidth:100)
+                    }.buttonStyle(.borderedProminent).controlSize(.large)
+                        .tint(sonar.running || sonar.starting ? .red : .accentColor)
+                        .disabled(!practice && !reader.accessibilityGranted && !sonar.running && !sonar.starting)
+                }
+            }.padding(20).background(Color.primary.opacity(0.025),in:RoundedRectangle(cornerRadius:14))
             HStack {
-                Picker("Control",selection:destination) {
-                    Text("Practice here").tag(true)
-                    Text(appName).tag(false)
-                }.pickerStyle(.segmented).frame(width:300)
-                Spacer()
+                Text(detail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+                Spacer(minLength:20)
                 options
-            }.frame(height:32)
-            VStack(alignment:.leading,spacing:5) {
-                Text(instruction).font(.headline)
-                Text(detail).font(.callout).foregroundStyle(.secondary)
-            }.frame(height:72,alignment:.topLeading)
+            }
             stage.frame(maxWidth:.infinity,maxHeight:.infinity)
                 .clipShape(RoundedRectangle(cornerRadius:16))
                 .overlay(RoundedRectangle(cornerRadius:16).strokeBorder(.primary.opacity(0.08)))
