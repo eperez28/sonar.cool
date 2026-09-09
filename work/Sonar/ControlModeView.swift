@@ -43,7 +43,7 @@ struct ControlModeView: View {
                 Text(instruction).font(.system(size:16,weight:.medium)).fixedSize(horizontal:false,vertical:true)
                 Text("Try the preview below. Switch to another app to control it with the same gesture.")
                     .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
-                if reader.mode == .zoom {
+                if reader.mode == .zoom || reader.mode == .scroll {
                     Button { showZoomHelp = true } label: {
                         HStack(spacing:10) {
                             Image(systemName:"play.circle.fill")
@@ -53,13 +53,13 @@ struct ControlModeView: View {
                             .background(Color(nsColor:.controlBackgroundColor),in:RoundedRectangle(cornerRadius:10))
                             .overlay(RoundedRectangle(cornerRadius:10).strokeBorder(Color.primary.opacity(0.1)))
                             .contentShape(RoundedRectangle(cornerRadius:10))
-                    }.buttonStyle(.plain).help("Watch the push and pull gesture")
+                    }.buttonStyle(.plain).help("Watch the gesture")
                         .sheet(isPresented:$showZoomHelp) {
-                            AppSheet(title:"Push and pull to zoom",close:{ showZoomHelp = false }) {
+                            AppSheet(title:reader.mode == .scroll ? "Lift your hand to scroll" : "Push and pull to zoom",close:{ showZoomHelp = false }) {
                                 VStack(alignment:.leading,spacing:20) {
-                                    Text("Push toward the screen to zoom in. Pull back toward yourself to zoom out.")
+                                    Text(reader.mode == .scroll ? "Lift your hand to scroll. Lower it to stop." : "Push toward the screen to zoom in. Pull back toward yourself to zoom out.")
                                         .font(.callout).foregroundStyle(.secondary)
-                                    ZoomGesturePreview().frame(height:320).clipped().clipShape(RoundedRectangle(cornerRadius:12))
+                                    GesturePreview(resource:reader.mode == .scroll ? "scroll" : "push-pull").frame(height:320).clipped().clipShape(RoundedRectangle(cornerRadius:12))
                                 }
                             }
                         }
@@ -172,12 +172,13 @@ private final class ContainedGestureImageView: NSImageView {
     override var intrinsicContentSize: NSSize { NSSize(width:NSView.noIntrinsicMetric,height:NSView.noIntrinsicMetric) }
 }
 
-private struct ZoomGesturePreview: NSViewRepresentable {
+private struct GesturePreview: NSViewRepresentable {
+    let resource: String
     func makeNSView(context:Context) -> NSImageView {
         let view = ContainedGestureImageView()
         view.imageScaling = .scaleProportionallyUpOrDown
         view.animates = true
-        if let url = Bundle.main.url(forResource:"push-pull",withExtension:"gif",subdirectory:"Zoom") {
+        if let url = Bundle.main.url(forResource:resource,withExtension:"gif",subdirectory:"Zoom") {
             view.image = NSImage(contentsOf:url)
         }
         return view
