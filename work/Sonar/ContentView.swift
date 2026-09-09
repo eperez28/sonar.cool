@@ -67,15 +67,13 @@ struct ContentView: View {
                         Text(reader.mode.subtitle).foregroundStyle(.secondary)
                     }
                     Spacer()
-                    if reader.mode == .signal || reader.mode == .distance || reader.mode == .position {
                     HStack(spacing:7) {
                         Circle().fill(sonar.running ? Color.mint : Color.secondary.opacity(0.5)).frame(width:6,height:6)
                         Text(sonar.starting ? "Starting" : sonar.running ? ((sonar.status.contains("Calibrating") || sonar.status.contains("Measuring empty desk")) ? "Calibrating" : "Active") : "Stopped").font(.callout)
                     }.foregroundStyle(.secondary)
                     Button(sonar.running || sonar.starting ? "Stop" : "Start") {
                         if sonar.running || sonar.starting { sonar.stop() } else { sonar.start() }
-                    }.buttonStyle(.borderedProminent).tint(sonar.running ? .red : .accentColor).controlSize(.large).frame(minWidth:78)
-                    }
+                    }.buttonStyle(.borderedProminent).tint(sonar.running ? .red : .accentColor).controlSize(.large).frame(minWidth:100)
                 }.padding(24)
                 Divider()
                 if isExternal && !reader.accessibilityGranted {

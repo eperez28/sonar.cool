@@ -52,14 +52,7 @@ struct ControlModeView: View {
                     }
                     Spacer()
                     if sonar.starting { ProgressView().controlSize(.small) }
-                    Button {
-                        if sonar.running || sonar.starting { sonar.stop() } else { sonar.start() }
-                    } label: {
-                        Label(sonar.running || sonar.starting ? "Stop" : "Start \(reader.mode.rawValue)",systemImage:sonar.running || sonar.starting ? "stop.fill" : "play.fill")
-                            .frame(minWidth:100)
-                    }.buttonStyle(.borderedProminent).controlSize(.large)
-                        .tint(sonar.running || sonar.starting ? .red : .accentColor)
-                        .disabled(!reader.accessibilityGranted && !sonar.running && !sonar.starting)
+
                 }
             }.padding(20).background(Color.primary.opacity(0.025),in:RoundedRectangle(cornerRadius:14))
             HStack {
