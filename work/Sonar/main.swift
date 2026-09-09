@@ -95,13 +95,14 @@ final class Reader: ObservableObject {
     let demo = DemoSession()
     let signal = SignalHistory()
     @Published var mode: DemoMode = .scroll { didSet { demo.wave.cancel(); resetMotion(); demo.feedback = "Start, stay still for 3 seconds, then try a gesture."; demo.inputFeedback = "Waiting for audio" } }
-    @Published var chromeGallery = false { didSet { demo.wave.cancel(); resetMotion() } }
+    @Published var chromeGallery = true { didSet { demo.wave.cancel(); resetMotion() } }
     var usesExternalControl: Bool { (mode == .zoom && !zoomPractice) || usesSystemScroll || (mode == .gallery && chromeGallery) }
     var usesSystemScroll: Bool { mode == .scroll && systemWide }
     @Published var action = "Lift to scroll · lower to reset"
     @Published private(set) var forward = true
     @Published private(set) var directionChanges = 0
-    @Published var zoomPractice = true
+    @Published var zoomPractice = false
+    private var localZoom: Bool { zoomPractice || NSApp.isActive }
     @Published var zoomScale = 1.0
     func practiceZoom(_ action: Int) {
         zoomMotion.steps = action > 0 ? 3 : action == 0 ? 0 : max(0,zoomMotion.steps-1)
@@ -142,9 +143,9 @@ final class Reader: ObservableObject {
         }
     }
     private var canScroll: Bool {
-        if mode == .zoom { return zoomPractice ? NSApp.isActive : accessibilityGranted && AppZoom.frontmost }
+        if mode == .zoom { return localZoom ? NSApp.isActive : accessibilityGranted && AppZoom.frontmost }
         if mode == .gallery && chromeGallery { return NSApp.isActive || (accessibilityGranted && AppSwipe.frontmost && demo.wave.recording == nil) }
-        return usesSystemScroll ? accessibilityGranted && !NSApp.isActive : NSApp.isActive
+        return NSApp.isActive || (usesSystemScroll && accessibilityGranted)
     }
     private var ticker: Timer?
     private var lastTick = 0.0
@@ -180,7 +181,7 @@ final class Reader: ObservableObject {
         if mode != .scroll { return }
         let delta = motion.step(dt:dt,now:now)
         if abs(delta)>0.01 {
-            if systemWide { systemScroll.scroll(delta) } else { scroll(points:CGFloat(delta)) }
+            if systemWide && !NSApp.isActive { systemScroll.scroll(delta) } else { scroll(points:CGFloat(delta)) }
         }
         let velocity = motion.velocity
         let next = airTapEnabled && now < taps.feedbackUntil ? taps.feedback : velocity > 10 ? "↓ Scrolling down" : (velocity < -10 ? "↑ Scrolling up" : "Lift to scroll · lower to reset")
@@ -224,13 +225,13 @@ final class Reader: ObservableObject {
     }
     func consume(_ reading: Reading, duration: Double) {
         if mode == .zoom {
-            let pid = zoomPractice ? ProcessInfo.processInfo.processIdentifier : AppZoom.pid
+            let pid = localZoom ? ProcessInfo.processInfo.processIdentifier : AppZoom.pid
             guard canScroll else { zoomMotion.clearEvidence(); zoomFeedback = zoomPractice ? "Bring Sonar to the front" : "Paused · bring another app to the front"; return }
             if zoomPID != pid { zoomMotion = ZoomMotion(); zoomPID = pid }
             let previousZoom = zoomMotion
             if let zoomAction = zoomMotion.feed(reading, now:ProcessInfo.processInfo.systemUptime, reversed:zoomReversed) {
-                if zoomPractice || AppZoom.send(action:zoomAction) {
-                    if zoomPractice { zoomScale = [1.0,1.15,1.3,1.5][zoomMotion.steps] }; zoomIndicator = zoomAction > 0 ? "+" : "−"; zoomFeedback = zoomAction > 0 ? "Zoomed in · pull back to reset" : zoomAction == 0 ? "Zoom return sent · push to zoom" : "Zooming out · keep pulling back" }
+                if localZoom || AppZoom.send(action:zoomAction) {
+                    if localZoom { zoomScale = [1.0,1.15,1.3,1.5][zoomMotion.steps] }; zoomIndicator = zoomAction > 0 ? "+" : "−"; zoomFeedback = zoomAction > 0 ? "Zoomed in · pull back to reset" : zoomAction == 0 ? "Zoom return sent · push to zoom" : "Zooming out · keep pulling back" }
                 else { zoomMotion = previousZoom; zoomFeedback = "Paused · click the photo or page outside text fields" }
             }
             return
@@ -555,6 +556,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         menuStop.isEnabled = sonar.running || sonar.starting
         menuPermission.isHidden = permission
     }
+    @objc func selectControlFromMenu(_ sender: NSMenuItem) {
+        sonar.stop()
+        sonar.reader.mode = [DemoMode.scroll, .gallery, .zoom][sender.tag]
+        sonar.reader.systemWide = true
+        sonar.reader.chromeGallery = true
+        sonar.reader.zoomPractice = false
+        startFromMenu()
+    }
+
     @objc func permissionFromMenu() { sonar.reader.openAccessibilitySettings() }
 
     @objc func stopFromMenu() { sonar.stop() }
@@ -585,7 +595,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         let statusMenu = NSMenu(); statusMenu.autoenablesItems = false; statusMenu.delegate = self
         menuState.isEnabled = false; statusMenu.addItem(menuState)
         statusMenu.addItem(.separator())
-        menuStart.target = self; menuStart.action = #selector(startFromMenu); statusMenu.addItem(menuStart)
+        for (index, mode) in [DemoMode.scroll, .gallery, .zoom].enumerated() {
+            let item = NSMenuItem(title:"Start \(mode.rawValue)",action:#selector(selectControlFromMenu(_:)),keyEquivalent:"")
+            item.tag = index; item.target = self; statusMenu.addItem(item)
+        }
+        statusMenu.addItem(.separator())
+        menuStart.target = self; menuStart.action = #selector(startFromMenu)
         menuStop.target = self; menuStop.action = #selector(stopFromMenu); statusMenu.addItem(menuStop)
         for (title,action) in [("Switch direction · ⌃⌥⌘D",#selector(flipFromMenu)),("Show controls",#selector(showControls))] {
             let item = NSMenuItem(title:title,action:action,keyEquivalent:""); item.target = self; statusMenu.addItem(item)

@@ -5,23 +5,7 @@ struct ControlModeView: View {
     @ObservedObject var sonar: Sonar
     @ObservedObject var reader: Reader
     @ObservedObject var demo: DemoSession
-    private var practice: Bool {
-        switch reader.mode {
-        case .scroll: return !reader.systemWide
-        case .gallery: return !reader.chromeGallery
-        default: return reader.zoomPractice
-        }
-    }
-    private var destination: Binding<Bool> {
-        Binding(get:{ practice },set:{ value in
-            sonar.stop()
-            switch reader.mode {
-            case .scroll: reader.systemWide = !value
-            case .gallery: reader.chromeGallery = !value
-            default: reader.zoomPractice = value
-            }
-        })
-    }
+    private var practice: Bool { true }
     private var appName: String {
         "Other apps"
     }
@@ -55,16 +39,8 @@ struct ControlModeView: View {
     var body: some View {
         VStack(alignment:.leading,spacing:16) {
             VStack(alignment:.leading,spacing:18) {
-                HStack {
-                    Text("Where would you like to use it?").font(.headline)
-                    Spacer()
-                    Picker("Use control in",selection:destination) {
-                        Text("Practice here").tag(true)
-                        Text("Other apps").tag(false)
-                    }.labelsHidden().pickerStyle(.segmented).frame(width:270)
-                }
                 Text(instruction).font(.system(size:19,weight:.medium)).fixedSize(horizontal:false,vertical:true)
-                Text(practice ? "Try the gesture in the preview below." : "Open your target app first. Start here, then switch to it during the countdown.")
+                Text("Try the preview below. Switch to another app to control it with the same gesture.")
                     .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
                 Divider()
                 HStack(spacing:16) {
@@ -83,7 +59,7 @@ struct ControlModeView: View {
                             .frame(minWidth:100)
                     }.buttonStyle(.borderedProminent).controlSize(.large)
                         .tint(sonar.running || sonar.starting ? .red : .accentColor)
-                        .disabled(!practice && !reader.accessibilityGranted && !sonar.running && !sonar.starting)
+                        .disabled(!reader.accessibilityGranted && !sonar.running && !sonar.starting)
                 }
             }.padding(20).background(Color.primary.opacity(0.025),in:RoundedRectangle(cornerRadius:14))
             HStack {
