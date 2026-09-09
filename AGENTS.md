@@ -72,6 +72,19 @@
 - Honor the user's physical test results over synthetic success.
 - When a regression follows tuning, identify the change and repair the behavior before adding more features.
 
+## README and public copy
+
+- Write in Emanuel’s voice: plain, conversational, specific, and practical. Use natural explanations and concrete examples. Avoid poetic language, marketing metaphors, forced slang, and filler.
+- Use affirmative sentences. Avoid contrastive constructions such as “not X, but Y,” “this isn’t X,” and negation-heavy disclaimers. State the behavior directly and describe remaining work plainly.
+- Use the status wording **“This is an experiment in progress.”**
+- Preserve factual limits through direct wording such as “accuracy testing is ongoing” or “position estimates remain experimental.” Keep claims grounded in observed behavior.
+- Explain the mechanism step by step: speakers emit a steady tone (20 kHz by default); sound reflects off a moving hand; motion toward the audio hardware raises the reflected frequency and motion away lowers it; the microphone receives the reflections; the app detects frequency-change patterns and maps recognized gestures to commands.
+- Explain sonar as sensing with sound and echoes, and the Doppler effect as the frequency shift used to detect movement. Describe sideways gestures as inferred from the signal.
+- Keep the approved animated diagram at `assets/gesture-sensing.gif` directly beneath the README’s mechanism explanation. Preserve its schematic qualification.
+- Keep the brief pets FYI: dogs and cats can hear the default 20 kHz frequency; use Sonar away from pets and stop if they seem uncomfortable. Preserve the hearing-range source and the statement that pet safety and sound levels still need evaluation.
+- Credit SoundWave and its researchers in the inspiration section. Preserve separate rights and attribution for bundled media.
+- Link “contact Emanuel” to `https://x.com/emanperez28`.
+
 ## Bundled demo assets
 
 - The user explicitly approved including the SoundWave PDF and Yoda image. Keep their attribution and separate-license notes; do not describe either as MIT-licensed.
