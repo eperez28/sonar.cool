@@ -62,9 +62,12 @@ struct ContentView: View {
             Divider()
             VStack(spacing:0) {
                 HStack(alignment:.center) {
-                    Button(sonar.running || sonar.starting ? "Stop" : "Start") {
+                    Button {
                         if sonar.running || sonar.starting { sonar.stop() } else { sonar.start() }
-                    }.buttonStyle(.borderedProminent).tint(sonar.running ? .red : .accentColor).controlSize(.large).frame(minWidth:100)
+                    } label: {
+                        Label(sonar.running || sonar.starting ? "Stop" : "Start",systemImage:sonar.running || sonar.starting ? "stop.fill" : "play.fill")
+                            .font(.system(size:17,weight:.semibold)).frame(minWidth:110,minHeight:30)
+                    }.buttonStyle(.borderedProminent).tint(sonar.running || sonar.starting ? .red : .accentColor).controlSize(.large)
                     VStack(alignment:.leading,spacing:4) {
                         Text(reader.mode.rawValue).font(.system(size:26,weight:.semibold))
                         Text(reader.mode.subtitle).foregroundStyle(.secondary)
