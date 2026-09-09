@@ -162,6 +162,25 @@ struct ExperimentStatus: View {
     }
 }
 
+enum ScreenLayout {
+    static let width: CGFloat = 880
+    static let previewHeight: CGFloat = 320
+    static let spacing: CGFloat = 24
+    static let inset: CGFloat = 32
+}
+
+struct ScreenBody<Content: View>: View {
+    @ViewBuilder var content: () -> Content
+    var body: some View {
+        ScrollView {
+            VStack(alignment:.leading,spacing:ScreenLayout.spacing) { content() }
+                .padding(ScreenLayout.inset)
+                .frame(maxWidth:ScreenLayout.width)
+                .frame(maxWidth:.infinity,alignment:.top)
+        }.frame(maxWidth:.infinity,maxHeight:.infinity)
+    }
+}
+
 struct ExperimentLayout<Toolbar: View, Stage: View, Actions: View, Status: View>: View {
     let title: String
     let detail: String
@@ -170,15 +189,15 @@ struct ExperimentLayout<Toolbar: View, Stage: View, Actions: View, Status: View>
     @ViewBuilder var actions: () -> Actions
     @ViewBuilder var status: () -> Status
     var body: some View {
-        VStack(alignment:.leading,spacing:16) {
+        ScreenBody {
             toolbar().frame(height:32)
             ExperimentIntro(title:title,detail:detail)
             GeometryReader { geometry in
                 stage().frame(width:geometry.size.width,height:geometry.size.height)
-            }.clipped()
+            }.frame(height:ScreenLayout.previewHeight).clipped()
             actions().frame(height:32)
             status().frame(height:48)
-        }.padding(24).frame(maxWidth:960).frame(maxWidth:.infinity,maxHeight:.infinity)
+        }
     }
 }
 

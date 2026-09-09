@@ -38,7 +38,7 @@ struct ControlModeView: View {
         }
     }
     var body: some View {
-        VStack(alignment:.leading,spacing:16) {
+        ScreenBody {
             VStack(alignment:.leading,spacing:18) {
                 Text(instruction).font(.system(size:16,weight:.medium)).fixedSize(horizontal:false,vertical:true)
                 Text("Try the preview below. Switch to another app to control it with the same gesture.")
@@ -89,7 +89,7 @@ struct ControlModeView: View {
                     if sonar.starting { ProgressView().controlSize(.small) }
 
                 }
-            }.padding(20).background(Color.primary.opacity(0.025),in:RoundedRectangle(cornerRadius:14))
+            }.frame(maxWidth:.infinity,alignment:.leading)
             HStack {
                 Text(detail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
                 Spacer(minLength:20)
@@ -97,13 +97,13 @@ struct ControlModeView: View {
             }
             GeometryReader { space in
                 let ratio = previewImage.map { $0.size.width / max(1,$0.size.height) } ?? 1.5
-                let width = reader.mode == .scroll ? min(space.size.width,720) : min(640,space.size.width,max(1,space.size.height) * ratio)
+                let width = reader.mode == .scroll ? space.size.width : min(space.size.width,max(1,space.size.height) * ratio)
                 let height = reader.mode == .scroll ? space.size.height : width / ratio
                 stage.frame(width:width,height:height)
                     .clipShape(RoundedRectangle(cornerRadius:12))
                     .overlay(RoundedRectangle(cornerRadius:12).strokeBorder(.primary.opacity(0.08)))
                     .frame(maxWidth:.infinity,maxHeight:.infinity)
-            }.frame(minHeight:160)
+            }.frame(height:ScreenLayout.previewHeight)
             HStack(spacing:10) { actions }.controlSize(.regular).frame(height:32)
             HStack(spacing:8) {
                 Image(systemName:sonar.running ? "waveform" : "circle.dotted")
@@ -111,7 +111,7 @@ struct ControlModeView: View {
                 Spacer()
             }.font(.callout).foregroundStyle(.secondary).padding(12)
                 .background(.quaternary.opacity(0.3),in:RoundedRectangle(cornerRadius:10))
-        }.padding(24).frame(maxWidth:960).frame(maxWidth:.infinity,maxHeight:.infinity)
+        }
     }
     @ViewBuilder private var options: some View {
         switch reader.mode {
