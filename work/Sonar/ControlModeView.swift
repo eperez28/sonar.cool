@@ -44,7 +44,17 @@ struct ControlModeView: View {
                 Text("Try the preview below. Switch to another app to control it with the same gesture.")
                     .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
                 if reader.mode == .zoom {
-                    Button("Watch the push / pull gesture") { showZoomHelp = true }
+                    Button { showZoomHelp = true } label: {
+                        HStack(spacing:10) {
+                            Image(systemName:"play.circle.fill")
+                                .font(.system(size:26)).foregroundStyle(Color.accentColor)
+                            Text("Watch the gesture").font(.system(size:13,weight:.semibold))
+                        }.padding(.horizontal,14).padding(.vertical,10)
+                            .background(Color(nsColor:.controlBackgroundColor),in:RoundedRectangle(cornerRadius:10))
+                            .overlay(RoundedRectangle(cornerRadius:10).strokeBorder(Color.primary.opacity(0.1)))
+                            .shadow(color:.black.opacity(0.06),radius:3,x:0,y:2)
+                            .contentShape(RoundedRectangle(cornerRadius:10))
+                    }.buttonStyle(.plain).help("Watch the push and pull gesture")
                         .sheet(isPresented:$showZoomHelp) {
                             VStack(spacing:0) {
                                 HStack {
