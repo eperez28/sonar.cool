@@ -25,13 +25,15 @@ elif [[ -n "${SONAR_PAPER_PATH:-}" ]]; then
   echo "PDF not found: $SONAR_PAPER_PATH" >&2
   exit 1
 fi
-swiftc -O work/Sonar/main.swift work/Sonar/HardwareAudio.swift work/Sonar/SystemScroll.swift work/Sonar/DemoModes.swift work/Sonar/WaveCalibration.swift work/Sonar/ContentView.swift work/Sonar/ControlModeView.swift work/Sonar/SignalView.swift work/Sonar/AudioSignalView.swift work/Sonar/Distance.swift work/Sonar/Position.swift work/Sonar/EchoFlowView.swift work/Sonar/Zoom.swift -o "$SONAR_APP/Contents/MacOS/Sonar" -framework AppKit -framework SwiftUI -framework AVFoundation -framework Accelerate -framework CoreAudio -framework PDFKit -framework Carbon -framework ApplicationServices
+swiftc -target arm64-apple-macosx14.0 -O work/Sonar/main.swift work/Sonar/HardwareAudio.swift work/Sonar/SystemScroll.swift work/Sonar/DemoModes.swift work/Sonar/WaveCalibration.swift work/Sonar/ContentView.swift work/Sonar/ControlModeView.swift work/Sonar/SignalView.swift work/Sonar/AudioSignalView.swift work/Sonar/Distance.swift work/Sonar/Position.swift work/Sonar/EchoFlowView.swift work/Sonar/Zoom.swift -o "$SONAR_APP/Contents/MacOS/Sonar" -framework AppKit -framework SwiftUI -framework AVFoundation -framework Accelerate -framework CoreAudio -framework PDFKit -framework Carbon -framework ApplicationServices
 cat > "$SONAR_APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
 <key>CFBundleExecutable</key><string>Sonar</string>
 <key>CFBundleIdentifier</key><string>com.emanuel.sonarlab</string>
+<key>CFBundleShortVersionString</key><string>0.1.0</string>
+<key>CFBundleVersion</key><string>5</string>
 <key>CFBundleName</key><string>Sonar</string>
 <key>CFBundleDisplayName</key><string>Sonar</string>
 <key>CFBundleIconFile</key><string>Sonar.icns</string>
@@ -44,7 +46,7 @@ PLIST
 # A stable certificate preserves permissions across rebuilds. Local builds can
 # use ad-hoc signing without owning a paid Apple developer certificate.
 SONAR_SIGNING_IDENTITY="${SONAR_SIGNING_IDENTITY:--}"
-codesign --force --sign "$SONAR_SIGNING_IDENTITY" --identifier com.emanuel.sonarlab "$SONAR_APP"
+codesign --force --entitlements script/Sonar.entitlements --sign "$SONAR_SIGNING_IDENTITY" --identifier com.emanuel.sonarlab "$SONAR_APP"
 codesign --verify --strict "$SONAR_APP"
 # Verify the failure path exits normally, then test the staged build. No failed
 # test build replaces or stops the user's current installed app.

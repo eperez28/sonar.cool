@@ -288,6 +288,7 @@ struct Reading {
     var sampleRate: Double = 0
     var firstFrequency: Double = 0
     var binWidth: Double = 0
+    var calibrationRemaining: Double? = nil
 }
 
 final class Analyzer {
@@ -348,7 +349,7 @@ final class Analyzer {
             bands[band] += Double(max(0,power[i]-baseline[i]*2)/reference)
         }
         bands = bands.map { log1p($0/0.0003) }
-        return Reading(spectrum: db, baseline: baseline.map { 10*log10(max($0,1e-16)) }, direction: direction, carrierDB: carrier, snr: carrier-floor, strength: strength, waveBands: bands, opposedStrength: min(left,right)/reference, waveform: Array(input.suffix(512)), sampleRate: rate, firstFrequency: Double(center-radius)*rate/Double(n), binWidth: rate/Double(n))
+        return Reading(spectrum: db, baseline: baseline.map { 10*log10(max($0,1e-16)) }, direction: direction, carrierDB: carrier, snr: carrier-floor, strength: strength, waveBands: bands, opposedStrength: min(left,right)/reference, waveform: Array(input.suffix(512)), sampleRate: rate, firstFrequency: Double(center-radius)*rate/Double(n), binWidth: rate/Double(n), calibrationRemaining: calibrating ? max(0,2.5-Double((frames-1)*hop)/rate) : nil)
     }
 }
 
@@ -374,6 +375,7 @@ final class Sonar: ObservableObject {
     let position = PositionModel()
     @Published var running = false
     @Published var starting = false
+    @Published var calibrationRemaining: Double? = nil
     private var startAttempt = UUID()
     @Published var status = "Ready — sound is off"
     @Published var reading: Reading?
@@ -434,6 +436,7 @@ final class Sonar: ObservableObject {
                                 if let right { self.position.receive(left:result,right:right) }
                                 else { self.distance.receive(result) }
                                 self.status=result.status
+                                self.calibrationRemaining = result.calibrationRemaining
                             }
                         }
                         return
@@ -444,6 +447,7 @@ final class Sonar: ObservableObject {
                         DispatchQueue.main.async { [weak self] in
                             guard let self = self, self.session == id, self.running else { return }
                             self.reading = r; self.status = r.direction
+                            self.calibrationRemaining = r.calibrationRemaining
                             self.reader.consume(r,duration:Double(analyzer.hop)/rate)
                         }
                     }
@@ -451,6 +455,7 @@ final class Sonar: ObservableObject {
             }
             engine = e
             try e.start()
+            calibrationRemaining = ranging ? 3 : 2.5
             running = true
             reader.startMotion()
             route = "MacBook audio • mic \(Int(e.inputRate)) Hz / speakers \(Int(e.outputRate)) Hz"
@@ -465,7 +470,7 @@ final class Sonar: ObservableObject {
         }
     }
     func stop() {
-        startAttempt = UUID(); starting = false
+        startAttempt = UUID(); starting = false; calibrationRemaining = nil
         session = UUID(); timer?.invalidate(); timer = nil
         engine?.stop(); engine = nil
         position.reset()

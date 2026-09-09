@@ -19,6 +19,8 @@ struct ImmediateWave {
         guard now >= cooldownUntil else { return nil }
         let moving = r.strength > 0.00022
         if !moving {
+            // Separate interrupted candidates without re-arming a completed swipe.
+            started = nil; votes = 0; balanceSum = 0
             if quietSince == nil { quietSince = now }
             if now-(quietSince ?? now) >= 0.22 {
                 armed = true; started = nil; votes = 0; balanceSum = 0
@@ -37,7 +39,15 @@ struct ImmediateWave {
             balance = r.direction == "APPROACHING" ? 1 : r.direction == "MOVING AWAY" ? -1 : 0
         }
         // Use the first coherent lobe of a sweep; the opposite return is ignored.
-        if abs(balance) > 0.16 { balanceSum += balance; votes += 1 }
+        if abs(balance) > 0.16 {
+            // A sweep's clear lobe must not compete with an earlier opposite twitch.
+            if votes > 0 && balance * balanceSum < 0 {
+                started = now; votes = 0; balanceSum = 0
+            }
+            balanceSum += balance; votes += 1
+        } else {
+            started = now; votes = 0; balanceSum = 0
+        }
         let elapsed = now-(started ?? now)
         if elapsed > 0.65 {
             armed = false; started = nil; votes = 0; balanceSum = 0; return nil
@@ -121,6 +131,22 @@ func testWaveCalibration() {
         let expected = sign > 0 ? "next" : "previous"
         testCheck(fired == [expected,expected],"Paused return stroke triggered gallery navigation")
         testCheck(times.count == 2 && times[0] <= 0.38,"Protected gallery lost its faster initial response")
+    }
+    // A faint opposite precursor must not cancel a coherent sweep in either direction.
+    for sign in [1.0, -1.0] {
+        var detector = ImmediateWave(); var fired: [String] = []
+        for frame in 0..<40 {
+            let active = (20..<26).contains(frame)
+            let balance = frame < 22 ? -sign * 0.18 : sign * 0.32
+            var bands = [Double](repeating:0,count:8)
+            if active {
+                bands[2] = log1p(1-balance)
+                bands[5] = log1p(1+balance)
+            }
+            let r = Reading(spectrum:[],baseline:[],direction:"Mixed movement",carrierDB:0,snr:40,strength:active ? 0.004 : 0,waveBands:bands)
+            if let event = detector.feed(r,now:Double(frame)*0.02) { fired.append(event) }
+        }
+        testCheck(fired == [sign > 0 ? "next" : "previous"],"Opposite precursor cancelled coherent swipe")
     }
     let events = AppSwipe.keyEvents(next:true)
     testCheck(events.count == 2 && events[0].type == .keyDown && events[1].type == .keyUp)

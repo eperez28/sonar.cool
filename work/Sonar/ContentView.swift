@@ -29,15 +29,23 @@ struct ContentView: View {
             sonar.stop(); reader.mode = mode
         })
     }
+    private var versionLabel: String {
+        let version = Bundle.main.object(forInfoDictionaryKey:"CFBundleShortVersionString") as? String ?? "Development"
+        let build = Bundle.main.object(forInfoDictionaryKey:"CFBundleVersion") as? String
+        return build.map { "Version \(version) (\($0))" } ?? "Version \(version)"
+    }
     private var isExternal: Bool { reader.usesExternalControl }
     var body: some View {
         HStack(spacing:0) {
             VStack(alignment:.leading,spacing:0) {
-                HStack(spacing:10) {
+                HStack(spacing:4) {
                     if let url = Bundle.main.url(forResource:"SonarMark",withExtension:"png"), let mark = NSImage(contentsOf:url) {
-                        Image(nsImage:mark).resizable().scaledToFit().frame(width:36,height:36).clipShape(RoundedRectangle(cornerRadius:8))
+                        Image(nsImage:mark).resizable().scaledToFit().frame(width:52,height:52)
                     }
-                    Text("Sonar").font(.system(size:20,weight:.semibold))
+                    Text("sonar")
+                        .font(.custom("Arial", size:29).weight(.semibold))
+                        .tracking(-1.7)
+                        .foregroundStyle(Color(red:0,green:122.0/255.0,blue:1))
                 }.padding(22)
                 List(selection:selection) {
                     Section("CONTROLS") {
@@ -57,6 +65,7 @@ struct ContentView: View {
                     Color.clear.frame(height:0).sheet(isPresented:$showAudioSettings) {
                         AppSheet(title:"Audio settings",close:{ showAudioSettings = false }) { AudioSettingsView(sonar:sonar) }
                     }
+                    Text(versionLabel).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
                     Text("Stop anywhere  ⌃⌥⌘Space").font(.system(size:10)).foregroundStyle(.secondary)
                 }.padding(20)
             }.frame(width:195).background(.regularMaterial)
@@ -81,6 +90,28 @@ struct ContentView: View {
 
                 }.padding(.horizontal,ScreenLayout.inset).padding(.vertical,24).frame(maxWidth:ScreenLayout.width).frame(maxWidth:.infinity)
                 Divider()
+                if sonar.starting || sonar.calibrationRemaining != nil {
+                    HStack(spacing:16) {
+                        if let remaining = sonar.calibrationRemaining {
+                            Text("\(max(1,Int(ceil(remaining))))")
+                                .font(.system(size:36,weight:.semibold)).monospacedDigit()
+                                .foregroundStyle(Color.accentColor).frame(width:48)
+                        } else {
+                            ProgressView().frame(width:48)
+                        }
+                        VStack(alignment:.leading,spacing:4) {
+                            Text(sonar.starting ? "Starting microphone…" : "Calibrating — keep still")
+                                .font(.headline)
+                            Text(reader.mode == .distance || reader.mode == .position ? "Keep your hands away until calibration finishes." : "Hold your hand still. Move when the countdown finishes.")
+                                .font(.callout).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                    }
+                    .padding(20).background(Color.accentColor.opacity(0.07),in:RoundedRectangle(cornerRadius:12))
+                    .padding(.horizontal,ScreenLayout.inset).padding(.vertical,12)
+                    .frame(maxWidth:ScreenLayout.width).frame(maxWidth:.infinity)
+                    .accessibilityElement(children:.combine)
+                }
                 if isExternal && !reader.accessibilityGranted {
                     HStack { Text("Allow Accessibility access to control other apps."); Spacer(); Button("Open Settings") { reader.openAccessibilitySettings() } }.padding(16).background(.orange.opacity(0.12))
                 }
