@@ -86,6 +86,8 @@ Microphone audio is processed locally in memory and discarded after processing. 
 
 Inspired by [SoundWave: Using the Doppler Effect to Sense Gestures](https://www.microsoft.com/en-us/research/project/soundwave-using-the-doppler-effect-to-sense-gestures/), by Sidhant Gupta, Dan Morris, Shwetak Patel, and Desney Tan (CHI 2012). Their research demonstrated gesture sensing with existing speakers and microphones. Sonar is Emanuel Perez’s independent implementation.
 
+Thanks also to Daniel Rapp for [Doppler](https://github.com/DanielRapp/doppler), his browser implementation of SoundWave. We studied his sensing code and demos as a reference while building Sonar.
+
 Sonar's source is available under the [MIT license](LICENSE). The bundled SoundWave paper retains its original copyright and separate terms.
 
 If you’re enjoying Sonar, you can [buy me a coffee](https://buymeacoffee.com/emanuelperez).
