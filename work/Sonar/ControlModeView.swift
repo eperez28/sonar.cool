@@ -55,26 +55,13 @@ struct ControlModeView: View {
                             .contentShape(RoundedRectangle(cornerRadius:10))
                     }.buttonStyle(.plain).help("Watch the push and pull gesture")
                         .sheet(isPresented:$showZoomHelp) {
-                            VStack(spacing:0) {
-                                HStack {
-                                    Text("Push and pull to zoom").font(.title2.weight(.semibold))
-                                    Spacer()
-                                    Button { showZoomHelp = false } label: {
-                                        Image(systemName:"xmark").font(.system(size:13,weight:.semibold)).frame(width:28,height:28)
-                                    }.buttonStyle(.borderless).accessibilityLabel("Close gesture guide")
-                                }.padding(20)
-                                Text("Push toward the screen to zoom in. Pull back toward yourself to zoom out.")
-                                    .font(.callout).foregroundStyle(.secondary)
-                                    .frame(maxWidth:.infinity,alignment:.leading).padding(.horizontal,20).padding(.bottom,16)
-                                ZoomGesturePreview().frame(width:240,height:360).clipped()
-                                    .clipShape(RoundedRectangle(cornerRadius:10)).padding(.bottom,20)
-                                Divider()
-                                HStack {
-                                    Spacer()
-                                    Button("Done") { showZoomHelp = false }
-                                        .keyboardShortcut(.cancelAction).buttonStyle(.borderedProminent).controlSize(.large)
-                                }.padding(16)
-                            }.frame(width:440).background(Color(nsColor:.windowBackgroundColor))
+                            AppSheet(title:"Push and pull to zoom",close:{ showZoomHelp = false }) {
+                                VStack(alignment:.leading,spacing:20) {
+                                    Text("Push toward the screen to zoom in. Pull back toward yourself to zoom out.")
+                                        .font(.callout).foregroundStyle(.secondary)
+                                    ZoomGesturePreview().frame(height:320).clipped().clipShape(RoundedRectangle(cornerRadius:12))
+                                }
+                            }
                         }
                 }
                 Divider()
@@ -105,12 +92,7 @@ struct ControlModeView: View {
                     .frame(maxWidth:.infinity,maxHeight:.infinity)
             }.frame(height:ScreenLayout.previewHeight)
             HStack(spacing:10) { actions }.controlSize(.regular).frame(height:32)
-            HStack(spacing:8) {
-                Image(systemName:sonar.running ? "waveform" : "circle.dotted")
-                Text(feedback).lineLimit(1)
-                Spacer()
-            }.font(.callout).foregroundStyle(.secondary).padding(12)
-                .background(.quaternary.opacity(0.3),in:RoundedRectangle(cornerRadius:10))
+            ExperimentStatus(text:feedback,symbol:sonar.running ? "waveform" : "circle.dotted")
         }
     }
     @ViewBuilder private var options: some View {

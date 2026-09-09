@@ -11,7 +11,7 @@ extension DemoMode {
         case .scroll: return "Scroll through a page without touching your Mac."
         case .gallery: return "Browse photos by moving your hand left and right."
         case .position: return "An experimental estimate from two speaker echoes."
-        case .distance: return "Explore echo delay, not exact hand height."
+        case .distance: return "Explore experimental echo-delay estimates."
         case .signal: return "Watch changes in the microphone signal."
         }
     }
@@ -19,6 +19,7 @@ extension DemoMode {
 
 struct ContentView: View {
     @State private var showHowItWorks = false
+    @State private var showAudioSettings = false
     @ObservedObject var sonar: Sonar
     @ObservedObject var reader: Reader
     init(sonar: Sonar) { self.sonar = sonar; reader = sonar.reader }
@@ -48,20 +49,20 @@ struct ContentView: View {
                 }.listStyle(.sidebar)
                 VStack(alignment:.leading,spacing:14) {
                     Label("Built-in audio",systemImage:"speaker.wave.2").font(.caption).foregroundStyle(.secondary)
-                    Button { AudioSettingsWindow.show(sonar) } label: { Label("Audio settings…",systemImage:"slider.horizontal.3") }.buttonStyle(.plain)
+                    Button { showAudioSettings = true } label: { Label("Audio settings…",systemImage:"slider.horizontal.3") }.buttonStyle(.plain)
                     Button { showHowItWorks.toggle() } label: { Label("How it works",systemImage:"questionmark.circle") }.buttonStyle(.plain)
                         .sheet(isPresented:$showHowItWorks) {
-                            VStack(spacing:0) {
-                                ScrollView { HowItWorksView() }.frame(width:440,height:550)
-                                Button("Done") { showHowItWorks = false }.keyboardShortcut(.defaultAction).padding(.bottom,20)
-                            }
+                            AppSheet(title:"How Sonar works",close:{ showHowItWorks = false }) { HowItWorksView() }
                         }
+                    Color.clear.frame(height:0).sheet(isPresented:$showAudioSettings) {
+                        AppSheet(title:"Audio settings",close:{ showAudioSettings = false }) { AudioSettingsView(sonar:sonar) }
+                    }
                     Text("Stop anywhere  ⌃⌥⌘Space").font(.system(size:10)).foregroundStyle(.secondary)
                 }.padding(20)
             }.frame(width:195).background(.regularMaterial)
             Divider()
             VStack(spacing:0) {
-                HStack(alignment:.center) {
+                HStack(alignment:.center,spacing:20) {
                     Button {
                         if sonar.running || sonar.starting { sonar.stop() } else { sonar.start() }
                     } label: {
@@ -78,7 +79,7 @@ struct ContentView: View {
                         Text(sonar.starting ? "Starting" : sonar.running ? ((sonar.status.contains("Calibrating") || sonar.status.contains("Measuring empty desk")) ? "Calibrating" : "Active") : "Stopped").font(.callout)
                     }.foregroundStyle(.secondary)
 
-                }.padding(24)
+                }.padding(.horizontal,ScreenLayout.inset).padding(.vertical,24).frame(maxWidth:ScreenLayout.width).frame(maxWidth:.infinity)
                 Divider()
                 if isExternal && !reader.accessibilityGranted {
                     HStack { Text("Allow Accessibility access to control other apps."); Spacer(); Button("Open Settings") { reader.openAccessibilitySettings() } }.padding(16).background(.orange.opacity(0.12))
@@ -126,7 +127,6 @@ struct AudioSettingsView: View {
     @ObservedObject var sonar: Sonar
     var body: some View {
         VStack(alignment:.leading,spacing:20) {
-            Text("Audio & signal").font(.title2.bold())
             Text("Use the built-in speakers and microphone. Stop Sonar before changing the tone.").foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             Picker("Frequency",selection:$sonar.frequency) { ForEach([18000.0,19000.0,20000.0,21000.0],id:\.self) { Text("\(Int($0/1000)) kHz").tag($0) } }.disabled(sonar.running || sonar.starting)
             VStack(alignment:.leading) {
@@ -137,7 +137,7 @@ struct AudioSettingsView: View {
             Text(sonar.status).font(.caption)
             Text(sonar.route).font(.caption).foregroundStyle(.secondary)
             Text("Experimental. Stop if the tone is audible or uncomfortable. Microphone audio is not saved.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
-        }.padding(24).frame(width:440)
+        }.frame(maxWidth:.infinity,alignment:.leading)
     }
 }
 
@@ -147,7 +147,7 @@ struct ExperimentIntro: View {
     let detail: String
     var body: some View {
         VStack(alignment:.leading,spacing:6) {
-            Text(title).font(.headline)
+            Text(title).font(.system(size:16,weight:.medium))
             Text(detail).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
         }.frame(maxWidth:.infinity,minHeight:48,alignment:.leading)
     }
@@ -190,8 +190,8 @@ struct ExperimentLayout<Toolbar: View, Stage: View, Actions: View, Status: View>
     @ViewBuilder var status: () -> Status
     var body: some View {
         ScreenBody {
-            toolbar().frame(height:32)
             ExperimentIntro(title:title,detail:detail)
+            toolbar().frame(minHeight:32)
             GeometryReader { geometry in
                 stage().frame(width:geometry.size.width,height:geometry.size.height)
             }.frame(height:ScreenLayout.previewHeight).clipped()
@@ -203,22 +203,40 @@ struct ExperimentLayout<Toolbar: View, Stage: View, Actions: View, Status: View>
 
 struct HowItWorksView: View {
     var body: some View {
-        VStack(alignment:.leading,spacing:16) {
-            Text("How Sonar works").font(.title2.bold())
-            Text("Your Mac plays a high-frequency tone and listens with its microphone. Moving your hand changes the reflected sound. Sonar uses those changes to recognize gestures.").foregroundStyle(.secondary)
-            Divider()
-            tip("Scroll", "Lift your palm to scroll. Lower it to stop. Double-tap the air—two quick downward pushes—to switch direction. Enable Air double-tap in Scroll.")
-            tip("Swipe", "Hold an open hand palm-down above the keyboard. Sweep from one side to the other to move one image. Pause before returning your hand so the return is less likely to count as another swipe. Use Reverse directions if the image moves the wrong way. For Other apps, open a photo in Photos, a browser, or another viewer that supports left/right arrow keys. Keep that app in front.")
-            tip("Zoom", "Hold your palm above the keyboard and push it toward the screen to enlarge the image or page. Pull back toward you to zoom back out; a faster pull should make the return faster. Practice here enlarges Yoda to 150%. Other apps sends three zoom-in steps. Pulling back reverses those steps in native apps; browsers return to 100%. The app must support Command-plus/minus zoom. Keep it in front and click outside text fields. Reverse gestures swaps push and pull.")
-            Divider()
-            Text("Press Start and keep still during the countdown. Use the built-in speakers and microphone. No camera is used.").font(.callout).foregroundStyle(.secondary)
-            Text("Experimental: it senses sound changes, not fingers or exact hand position. Audio stays on your Mac.").font(.caption).foregroundStyle(.secondary)
-        }.padding(24).frame(width:400).fixedSize(horizontal:false,vertical:true)
+        VStack(alignment:.leading,spacing:24) {
+            tip("Sound and movement", "Sonar plays a steady tone through your Mac’s speakers. Your hand reflects it back to the microphone. Moving toward the Mac raises the reflected frequency; moving away lowers it. This Doppler shift lets Sonar detect movement.")
+            tip("Start", "Choose a control and press Start. Keep still for the three-second countdown, then move your palm above the keyboard. Practice in Sonar or switch to the app you want to control.")
+            tip("Scroll", "Lift your palm to scroll and lower it to stop. Enable Air double-tap to change direction with two quick downward pushes.")
+            tip("Swipe", "Sweep sideways to change photos. Pause before returning your hand. Reverse directions swaps the mapping. External viewers need left/right arrow-key support.")
+            tip("Zoom", "Push toward the screen to zoom in and pull back to zoom out. Reverse gestures swaps the mapping. External apps need Command-plus/minus support; browsers return to 100%.")
+            tip("Sound and privacy", "Use the built-in speakers and microphone. Stop if the tone feels uncomfortable, and use it away from pets. Audio is processed locally. This is an experiment in progress.")
+        }.frame(maxWidth:.infinity,alignment:.leading)
     }
     private func tip(_ title:String,_ body:String) -> some View {
-        VStack(alignment:.leading,spacing:4) {
+        VStack(alignment:.leading,spacing:8) {
             Text(title).font(.headline)
-            Text(body).font(.callout).foregroundStyle(.secondary)
+            Text(body).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
         }
+    }
+}
+
+struct AppSheet<Content: View>: View {
+    let title: String
+    let close: () -> Void
+    @ViewBuilder var content: () -> Content
+    var body: some View {
+        VStack(spacing:0) {
+            HStack {
+                Text(title).font(.system(size:20,weight:.semibold))
+                Spacer()
+                Button(action:close) { Image(systemName:"xmark").font(.system(size:13,weight:.semibold)).frame(width:30,height:30) }
+                    .buttonStyle(.borderless).accessibilityLabel("Close \(title)")
+            }.padding(.horizontal,24).padding(.vertical,16)
+            Divider()
+            ScrollView { content().padding(24).frame(maxWidth:.infinity,alignment:.leading) }
+                .frame(maxWidth:.infinity,maxHeight:.infinity)
+            Divider()
+            HStack { Spacer(); Button("Done",action:close).buttonStyle(.borderedProminent).controlSize(.large).keyboardShortcut(.cancelAction) }.padding(16)
+        }.frame(width:500,height:560).background(Color(nsColor:.windowBackgroundColor))
     }
 }

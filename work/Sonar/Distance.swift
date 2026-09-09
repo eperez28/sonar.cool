@@ -155,7 +155,8 @@ struct DistanceView: View {
             } actions: {
                 HStack {
                     Button("Reset background") { sonar.stop(); sonar.start() }.disabled(!sonar.running)
-                    Button("Settings…") { showReference.toggle() }.popover(isPresented:$showReference) {
+                    Button("Settings…") { showReference.toggle() }.sheet(isPresented:$showReference) {
+                        AppSheet(title:"Distance settings",close:{ showReference = false }) {
                         VStack(alignment:.leading,spacing:16) {
                             Text("Distance reference").font(.headline)
                             Text("An optional ruler measurement adds an offset. It cannot correct room reflections.").font(.callout).foregroundStyle(.secondary)
@@ -164,7 +165,8 @@ struct DistanceView: View {
                                 Button("Use height") { if let cm=model.reading.cm { model.offset=model.reference-cm } }.disabled(!sonar.running || model.reading.cm == nil)
                                 Button("Remove reference") { model.offset=nil }.disabled(model.offset == nil)
                             }
-                        }.padding(20).frame(width:340)
+                        }
+                        }
                     }
                     Spacer()
                     Label("Distinct",systemImage:"circle.fill").foregroundStyle(.mint)

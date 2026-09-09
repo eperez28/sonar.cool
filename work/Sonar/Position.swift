@@ -75,12 +75,14 @@ struct PositionView: View {
             } actions: {
                 HStack {
                     Button("Reset background") { sonar.stop(); sonar.start() }.disabled(!sonar.running)
-                    Button("Settings…") { showSettings.toggle() }.popover(isPresented:$showSettings) {
+                    Button("Settings…") { showSettings.toggle() }.sheet(isPresented:$showSettings) {
+                        AppSheet(title:"Position settings",close:{ showSettings = false }) {
                         VStack(alignment:.leading,spacing:16) {
                             Text("Position model").font(.headline)
                             Text("This estimate assumes a centered microphone.").foregroundStyle(.secondary)
                             Stepper("Speaker spacing: \(Int(model.span)) cm",value:$model.span,in:10...40,step:1)
-                        }.padding(20).frame(width:340)
+                        }
+                        }
                     }
                     Spacer()
                     Text(point.map { String(format:"x %.0f · y %.0f cm",$0.x,$0.height) } ?? "No position estimate").font(.callout).foregroundStyle(.secondary)
