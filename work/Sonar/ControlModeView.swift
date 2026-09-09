@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 struct ControlModeView: View {
+    @State private var showZoomHelp = false
     @ObservedObject var sonar: Sonar
     @ObservedObject var reader: Reader
     @ObservedObject var demo: DemoSession
@@ -42,6 +43,17 @@ struct ControlModeView: View {
                 Text(instruction).font(.system(size:19,weight:.medium)).fixedSize(horizontal:false,vertical:true)
                 Text("Try the preview below. Switch to another app to control it with the same gesture.")
                     .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+                if reader.mode == .zoom {
+                    Button("Watch the push / pull gesture") { showZoomHelp = true }
+                        .sheet(isPresented:$showZoomHelp) {
+                            VStack(alignment:.leading,spacing:16) {
+                                Text("Push and pull to zoom").font(.title2.weight(.semibold))
+                                Text("Push toward the screen to zoom in. Pull back toward yourself to zoom out.")
+                                ZoomGesturePreview().frame(width:360,height:420)
+                                Button("Done") { showZoomHelp = false }.keyboardShortcut(.cancelAction)
+                            }.padding(24)
+                        }
+                }
                 Divider()
                 HStack(spacing:16) {
                     VStack(alignment:.leading,spacing:4) {
@@ -144,4 +156,17 @@ struct ControlModeView: View {
             Text(practice ? "\(Int(reader.zoomScale*100))%" : "Uses the app’s zoom shortcuts").monospacedDigit().foregroundStyle(.secondary)
         }
     }
+}
+
+private struct ZoomGesturePreview: NSViewRepresentable {
+    func makeNSView(context:Context) -> NSImageView {
+        let view = NSImageView()
+        view.imageScaling = .scaleProportionallyUpOrDown
+        view.animates = true
+        if let url = Bundle.main.url(forResource:"push-pull",withExtension:"gif",subdirectory:"Zoom") {
+            view.image = NSImage(contentsOf:url)
+        }
+        return view
+    }
+    func updateNSView(_ view:NSImageView,context:Context) {}
 }

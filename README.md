@@ -36,6 +36,12 @@ Use the built-in speakers and microphone. Stop if the tone is audible or uncomfo
 
 Use **Practice here** to try the bundled demos. For **Other apps**, bring the target app forward and click its content. Direction controls let you reverse Swipe and Zoom. [More about gestures and app compatibility](docs/usage.md).
 
+### Push and pull to zoom
+
+Push toward the screen to zoom in. Pull back toward yourself to zoom out.
+
+![Push and pull hand gesture controlling zoom](assets/zoom/push-pull.gif)
+
 ## How it works
 
 Your Mac’s speakers play a steady, high-frequency tone, set to 20 kHz by default. Some of that sound bounces off your hand and returns to the microphone.
