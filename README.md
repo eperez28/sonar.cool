@@ -28,7 +28,7 @@ Use the built-in speakers and microphone. Stop if the tone is audible or uncomfo
 
 ## Gestures
 
-- **Scroll:** lift your palm to scroll, then lower it to stop.
+- **Scroll:** Lift your hand up and down to scroll. Do a double tap (in the air!) to reverse directions.
 - **Change scroll direction:** enable **Air double-tap**, then push down twice quickly.
 - **Swipe:** sweep sideways to browse photos or navigate apps that accept arrow keys; pause before returning your hand.
 - **Zoom:** push toward the screen to zoom in and pull back to zoom out; browser zoom returns to 100%.
@@ -38,7 +38,7 @@ Use **Practice here** to try the bundled demos. For **Other apps**, bring the ta
 
 ### Lift your hand to scroll
 
-Lift your hand to scroll. Lower it to stop.
+Lift your hand up and down to scroll. Do a double tap (in the air!) to reverse directions.
 
 ![Hand gesture controlling scrolling](assets/zoom/scroll.gif)
 

@@ -12,7 +12,7 @@ struct ControlModeView: View {
     }
     private var instruction: String {
         switch reader.mode {
-        case .scroll: return reader.forward ? "Raise your hand to scroll down the page, then lower it to stop." : "Raise your hand to scroll up the page, then lower it to stop."
+        case .scroll: return "Lift your hand up and down to scroll. Do a double tap (in the air!) to reverse directions."
         case .gallery: return demo.wave.reversed ? "Move your hand to the left for the next photo, or to the right to go back." : "Move your hand to the right for the next photo, or to the left to go back."
         default: return reader.zoomReversed ? "Pull your hand toward you to zoom in. Move it toward the screen to zoom back out." : "Move your hand toward the screen to zoom in. Pull it back toward you to zoom out."
         }
@@ -57,7 +57,7 @@ struct ControlModeView: View {
                         .sheet(isPresented:$showZoomHelp) {
                             AppSheet(title:reader.mode == .scroll ? "Lift your hand to scroll" : "Push and pull to zoom",close:{ showZoomHelp = false }) {
                                 VStack(alignment:.leading,spacing:20) {
-                                    Text(reader.mode == .scroll ? "Lift your hand to scroll. Lower it to stop." : "Push toward the screen to zoom in. Pull back toward yourself to zoom out.")
+                                    Text(reader.mode == .scroll ? "Lift your hand up and down to scroll. Do a double tap (in the air!) to reverse directions." : "Push toward the screen to zoom in. Pull back toward yourself to zoom out.")
                                         .font(.callout).foregroundStyle(.secondary)
                                     GesturePreview(resource:reader.mode == .scroll ? "scroll" : "push-pull").frame(height:320).clipped().clipShape(RoundedRectangle(cornerRadius:12))
                                 }
