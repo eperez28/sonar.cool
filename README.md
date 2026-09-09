@@ -18,7 +18,15 @@ Sonar senses movement toward and away from the audio hardware. Sideways gestures
 
 ## How it works
 
-The speakers play a high-frequency tone. The microphone picks up that tone and its reflections. When your hand moves, the reflected tone shifts slightly in frequency—the Doppler effect. Sonar watches those changes and turns recognized gestures into scrolling, arrow keys, or app zoom shortcuts.
+Your Mac’s speakers play a steady, high-frequency tone, set to 20 kHz by default. Some of that sound bounces off your hand and returns to the microphone.
+
+As your hand moves toward the speakers and microphone, the reflected sound shifts slightly higher in frequency. Moving away shifts it lower. This is the **Doppler effect**, the same effect that changes the pitch of a passing siren.
+
+Sonar compares the reflected sound with the tone it’s playing. It looks for patterns in those frequency changes, then turns a recognized gesture into a scroll, swipe, or zoom command. The microphone also picks up reflections from your desk, room, and other movement. Separating those reflections from your hand’s movement is part of the experiment.
+
+**Sonar** describes using sound and echoes to sense something. The **Doppler effect** is the frequency change this app uses to detect movement.
+
+![Animation showing a steady tone traveling from a Mac speaker to a moving hand, reflected sound returning to the microphone, and the app detecting its frequency shift.](assets/gesture-sensing.gif)
 
 Start with your hands still during the countdown so Sonar can measure the background sound. Then move your palm above the keyboard. In Scroll, **double-tap the air: push down twice quickly to change direction**. The direction arrow updates when the gesture is accepted. This works in both Practice here and Other apps when Air double-tap is enabled.
 
