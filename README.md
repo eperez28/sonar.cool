@@ -58,3 +58,5 @@ Set `SONAR_SIGNING_IDENTITY` to use your own signing certificate. Otherwise the 
 Inspired by [SoundWave: Using the Doppler Effect to Sense Gestures](https://www.microsoft.com/en-us/research/project/soundwave-using-the-doppler-effect-to-sense-gestures/), by Sidhant Gupta, Dan Morris, Shwetak Patel, and Desney Tan (CHI 2012). Their research demonstrated gesture sensing with existing speakers and microphones. Sonar is a separate experimental implementation, not an official Microsoft product.
 
 Sonar's source is available under the [MIT license](LICENSE). That license does not cover the SoundWave paper. No Apple 3D models are included.
+
+If you’re enjoying Sonar, you can [buy me a coffee](https://buymeacoffee.com/emanuelperez).
