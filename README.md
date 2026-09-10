@@ -8,7 +8,7 @@ Control your Mac with a wave of your hand. Sonar uses your Mac’s built-in spea
 
 ## Download
 
-[Download Sonar v0.1.0 for Apple silicon](https://github.com/eperez28/sonar.cool/releases/download/v0.1.0/Sonar-0.1.0-arm64.dmg). Open the DMG and drag Sonar into Applications. Requires macOS 14 or later. This is an experimental pre-release; testing across MacBook models is ongoing.
+[Download Sonar v0.1.1 for Apple silicon](https://github.com/eperez28/sonar.cool/releases/download/v0.1.1/Sonar-0.1.1-arm64.dmg). Open the DMG and drag Sonar into Applications. Requires macOS 14 or later. This is an experimental pre-release; testing across MacBook models is ongoing.
 
 ## Run from source
 

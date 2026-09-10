@@ -32,8 +32,8 @@ cat > "$SONAR_APP/Contents/Info.plist" <<'PLIST'
 <plist version="1.0"><dict>
 <key>CFBundleExecutable</key><string>Sonar</string>
 <key>CFBundleIdentifier</key><string>com.emanuel.sonarlab</string>
-<key>CFBundleShortVersionString</key><string>0.1.0</string>
-<key>CFBundleVersion</key><string>5</string>
+<key>CFBundleShortVersionString</key><string>0.1.1</string>
+<key>CFBundleVersion</key><string>6</string>
 <key>CFBundleName</key><string>Sonar</string>
 <key>CFBundleDisplayName</key><string>Sonar</string>
 <key>CFBundleIconFile</key><string>Sonar.icns</string>
