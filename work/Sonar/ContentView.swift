@@ -112,6 +112,14 @@ struct ContentView: View {
                     .frame(maxWidth:ScreenLayout.width).frame(maxWidth:.infinity)
                     .accessibilityElement(children:.combine)
                 }
+                if let warning = sonar.speakerWarning {
+                    Label(warning,systemImage:"speaker.slash.fill")
+                        .font(.callout).foregroundStyle(.orange)
+                        .fixedSize(horizontal:false,vertical:true)
+                        .padding(16).frame(maxWidth:ScreenLayout.width,alignment:.leading)
+                        .background(.orange.opacity(0.08),in:RoundedRectangle(cornerRadius:12))
+                        .padding(.horizontal,ScreenLayout.inset).padding(.vertical,8)
+                }
                 if isExternal && !reader.accessibilityGranted {
                     HStack { Text("Allow Accessibility access to control other apps."); Spacer(); Button("Open Settings") { reader.openAccessibilitySettings() } }.padding(16).background(.orange.opacity(0.12))
                 }
@@ -164,6 +172,7 @@ struct AudioSettingsView: View {
                 Text("Signal level · \(String(format:"%.1f",sonar.level*100))%")
                 Slider(value:$sonar.level,in:0.002...0.04).disabled(sonar.running || sonar.starting)
             }
+            if let warning = sonar.speakerWarning { Text(warning).foregroundStyle(.orange).fixedSize(horizontal:false,vertical:true) }
             Spectrum(reading:sonar.reading).frame(height:95).background(Color.black.opacity(0.8)).clipShape(RoundedRectangle(cornerRadius:8))
             Text(sonar.status).font(.caption)
             Text(sonar.route).font(.caption).foregroundStyle(.secondary)

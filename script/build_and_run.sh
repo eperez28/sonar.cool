@@ -25,7 +25,7 @@ elif [[ -n "${SONAR_PAPER_PATH:-}" ]]; then
   echo "PDF not found: $SONAR_PAPER_PATH" >&2
   exit 1
 fi
-swiftc -target arm64-apple-macosx14.0 -O work/Sonar/main.swift work/Sonar/HardwareAudio.swift work/Sonar/SystemScroll.swift work/Sonar/DemoModes.swift work/Sonar/WaveCalibration.swift work/Sonar/ContentView.swift work/Sonar/ControlModeView.swift work/Sonar/SignalView.swift work/Sonar/AudioSignalView.swift work/Sonar/Distance.swift work/Sonar/Position.swift work/Sonar/EchoFlowView.swift work/Sonar/Zoom.swift -o "$SONAR_APP/Contents/MacOS/Sonar" -framework AppKit -framework SwiftUI -framework AVFoundation -framework Accelerate -framework CoreAudio -framework PDFKit -framework Carbon -framework ApplicationServices
+swiftc -target arm64-apple-macosx14.0 -O work/Sonar/main.swift work/Sonar/HardwareAudio.swift work/Sonar/SpeakerVolume.swift work/Sonar/SystemScroll.swift work/Sonar/DemoModes.swift work/Sonar/WaveCalibration.swift work/Sonar/ContentView.swift work/Sonar/ControlModeView.swift work/Sonar/SignalView.swift work/Sonar/AudioSignalView.swift work/Sonar/Distance.swift work/Sonar/Position.swift work/Sonar/EchoFlowView.swift work/Sonar/Zoom.swift -o "$SONAR_APP/Contents/MacOS/Sonar" -framework AppKit -framework SwiftUI -framework AVFoundation -framework Accelerate -framework CoreAudio -framework PDFKit -framework Carbon -framework ApplicationServices
 cat > "$SONAR_APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

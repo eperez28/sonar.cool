@@ -382,18 +382,50 @@ final class Sonar: ObservableObject {
     @Published var frequency = (UserDefaults.standard.object(forKey:"sonarTone") as? Double ?? 20000.0) { didSet { if oldValue != frequency { reader.demo.wave.clear(); UserDefaults.standard.set(frequency,forKey:"sonarTone") } } }
     @Published var level = 0.008
     @Published var route = "Built-in speakers + microphone • AirPods excluded"
+    @Published var speakerState = SpeakerVolume.State.unknown
+    private var volumeTimer: Timer?
+    var speakerWarning: String? {
+        switch speakerState {
+        case .silent: return "Sonar needs sound to detect your hand. Unmute your Mac’s built-in speakers and raise the volume at least one step so gestures can work."
+        case .unknown: return "Sonar can’t read your speaker volume. Check that your built-in speakers are unmuted and the volume is raised."
+        case .ready: return nil
+        }
+    }
+    init() {
+        refreshSpeakerVolume()
+        volumeTimer = Timer.scheduledTimer(withTimeInterval:0.5,repeats:true) { [weak self] _ in self?.refreshSpeakerVolume() }
+    }
+    deinit { volumeTimer?.invalidate() }
+    func refreshSpeakerVolume() {
+        speakerState = SpeakerVolume.current()
+    }
     private var engine: HardwareAudio?
     private let analysisQueue = DispatchQueue(label:"sonar.analysis")
     private var timer: Timer?
     var globalControlsReady = false
     private var session = UUID()
+    private var showingVolumeNotice = false
     func start() {
-        guard !running && !starting else { return }
+        guard !running && !starting && !showingVolumeNotice else { return }
+        refreshSpeakerVolume()
         reader.refreshPermission()
         if reader.usesExternalControl && !reader.accessibilityGranted {
             status = "macOS has not accepted this build’s Accessibility access. Check Sonar in Accessibility settings."; return
         }
         if reader.usesExternalControl && !globalControlsReady { status = "Global stop shortcut unavailable. Quit and reopen Sonar."; return }
+        if speakerState == .silent && !UserDefaults.standard.bool(forKey:"speakerVolumeNoticeSeen") {
+            showingVolumeNotice = true
+            let alert = NSAlert()
+            alert.messageText = "Sonar needs sound to sense your hand"
+            alert.informativeText = "Unmute your built-in speakers and raise the volume at least one step. The tone may be inaudible, but it still needs speaker volume to work."
+            alert.addButton(withTitle:"Got it")
+            alert.addButton(withTitle:"Start anyway")
+            NSApp.activate(ignoringOtherApps:true)
+            let response = alert.runModal()
+            UserDefaults.standard.set(true,forKey:"speakerVolumeNoticeSeen")
+            showingVolumeNotice = false
+            guard response == .alertSecondButtonReturn else { return }
+        }
         starting = true; status = "Starting…"
         startAttempt = UUID(); let attempt = startAttempt
         AVCaptureDevice.requestAccess(for: .audio) { granted in
@@ -406,6 +438,7 @@ final class Sonar: ObservableObject {
         }
     }
     func begin() {
+        refreshSpeakerVolume()
         guard !running else { return }
         do {
             let tone = frequency
@@ -548,12 +581,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             menuState.title = sonar.status.contains("Calibrating") ? "Calibrating — stay still" : (sonar.reader.mode == .gallery ? "Swipe · \(sonar.reader.demo.feedback)" : sonar.reader.mode == .zoom ? "Zoom · \(sonar.reader.zoomFeedback)" : "Running · \(direction) · until stopped")
         } else if sonar.starting {
             statusItem.button?.title = " …"; menuState.title = "Starting audio…"
+        } else if sonar.speakerState == .silent {
+            statusItem.button?.title = " !"
+            menuState.title = "Unmute built-in speakers and raise volume for gestures"
         } else if !permission {
             statusItem.button?.title = " !"
             menuState.title = "Blocked: macOS has not granted this build access"
         } else {
             statusItem.button?.title = ""
             menuState.title = sonar.status
+        }
+        if sonar.speakerState == .silent && (sonar.running || sonar.starting) {
+            statusItem.button?.title = " !"
+            menuState.title = "Speakers muted or at zero — raise volume for gestures"
         }
         statusItem.button?.toolTip = menuState.title
         menuStart.title = permission ? "Start \(sonar.reader.mode.rawValue.lowercased())" : "Start unavailable — Accessibility access needed"
@@ -699,6 +739,7 @@ if CommandLine.arguments.contains("--self-test-failure-probe") {
 if CommandLine.arguments.contains("--self-test") {
     testEchoFlow()
     testPosition()
+    testSpeakerVolume()
     testDistance()
     testZoomMotion()
     testDemoModes()
