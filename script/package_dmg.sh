@@ -3,6 +3,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 : "${SONAR_SIGNING_IDENTITY:?Set a Developer ID Application identity}"
 : "${SONAR_NOTARY_PROFILE:?Set a notarytool keychain profile}"
+# Install the layout tool in an isolated environment, then set SONAR_DMGBUILD
+# to its bin/dmgbuild executable: python3 -m venv /tmp/sonar-dmg-tools &&
+# /tmp/sonar-dmg-tools/bin/pip install dmgbuild==1.6.7
+SONAR_DMGBUILD="${SONAR_DMGBUILD:-dmgbuild}"
+command -v "$SONAR_DMGBUILD" >/dev/null || { echo "Install dmgbuild and set SONAR_DMGBUILD (see script comments)." >&2; exit 1; }
 if [[ -n "$(git status --porcelain)" ]]; then
   echo "Commit source changes before packaging a release." >&2
   exit 1
@@ -23,9 +28,9 @@ xcrun notarytool submit "$SONAR_RELEASE/Sonar.zip" --keychain-profile "$SONAR_NO
 xcrun stapler staple "$SONAR_BUNDLE"
 xcrun stapler validate "$SONAR_BUNDLE"
 spctl --assess --type execute --verbose=2 "$SONAR_BUNDLE"
-ln -s /Applications "$SONAR_RELEASE/image/Applications"
+swift script/render_dmg_background.swift "$SONAR_RELEASE/background.png"
 SONAR_DMG="outputs/Sonar-${SONAR_VERSION}-$(uname -m).dmg"
-hdiutil create -volname Sonar -srcfolder "$SONAR_RELEASE/image" -format UDZO -ov "$SONAR_DMG"
+"$SONAR_DMGBUILD" -s script/dmg_settings.py -D "app=$SONAR_BUNDLE" -D "background=$SONAR_RELEASE/background.png" Sonar "$SONAR_DMG"
 codesign --timestamp --sign "$SONAR_SIGNING_IDENTITY" "$SONAR_DMG"
 xcrun notarytool submit "$SONAR_DMG" --keychain-profile "$SONAR_NOTARY_PROFILE" --wait
 xcrun stapler staple "$SONAR_DMG"
