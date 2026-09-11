@@ -17,19 +17,25 @@ struct SpeakerVolume {
               AudioObjectGetPropertyData(device,&address,0,nil,&size,&value) == noErr else { return nil }
         return value
     }
-    static func current() -> State {
-        guard let device = try? builtInDevice(scope:kAudioDevicePropertyScopeOutput) else { return .unknown }
+    struct Snapshot: Equatable {
+        var device: AudioDeviceID?
+        var muted: Bool?
+        var volumes: [Float32?]
+        var state: State { SpeakerVolume.classify(muted:muted,volumes:volumes) }
+    }
+    static func current() -> State { snapshot().state }
+    static func snapshot() -> Snapshot {
+        guard let device = try? builtInDevice(scope:kAudioDevicePropertyScopeOutput) else { return Snapshot(device:nil,muted:nil,volumes:[]) }
         let mute = read(device,kAudioDevicePropertyMute,0,initial:UInt32(0)).map { $0 != 0 }
-        if mute == true { return .silent }
         if let master = read(device,kAudioDevicePropertyVolumeScalar,0,initial:Float32(0)) {
-            return classify(muted:mute,volumes:[master])
+            return Snapshot(device:device,muted:mute,volumes:[master])
         }
         // Built-in stereo devices may expose independent channel volume instead of a master.
         let channels: [Float32?] = [1,2].map { channel in
             if read(device,kAudioDevicePropertyMute,UInt32(channel),initial:UInt32(0)) == 1 { return 0 }
             return read(device,kAudioDevicePropertyVolumeScalar,UInt32(channel),initial:Float32(0))
         }
-        return classify(muted:mute,volumes:channels)
+        return Snapshot(device:device,muted:mute,volumes:channels)
     }
 }
 

@@ -29,6 +29,14 @@ struct DiagnosticSampleSummary: Codable {
     var directionSwitches = 0
     var blocks = 0
     var samples = 0
+    var inputPeak: Float = 0
+    var clippedSamples = 0
+    mutating func measureInput(_ block: [Float]) {
+        for sample in block where sample.isFinite {
+            inputPeak = max(inputPeak,abs(sample))
+            if abs(sample) >= 0.999 { clippedSamples += 1 }
+        }
+    }
     var analyzedFrames = 0
     var motionFrames = 0
     var carrierSum: Double = 0
@@ -206,10 +214,13 @@ final class Diagnostics: ObservableObject {
                         }
                     }
                 } else { buffer.removeAll(keepingCapacity:true) }
+                calibration.measureInput(block)
                 let sampleCount = block.count
                 let snapshot = calibration
                 DispatchQueue.main.async { [weak self] in
                     guard let self, self.token == attempt, self.testing else { return }
+                    self.current.inputPeak = snapshot.inputPeak
+                    self.current.clippedSamples = snapshot.clippedSamples
                     self.current.calibrationFrames = snapshot.calibrationFrames
                     self.current.calibrationCarrierMin = snapshot.calibrationCarrierMin
                     self.current.calibrationCarrierMax = snapshot.calibrationCarrierMax
@@ -304,7 +315,7 @@ final class Diagnostics: ObservableObject {
         let digest = Bundle.main.executableURL.flatMap { try? Data(contentsOf:$0) }.map { SHA256.hash(data:$0).map { String(format:"%02x",$0) }.joined() } ?? "Unavailable"
         let summary = result.replacingOccurrences(of:" This test does not verify control of another app.",with:"") + (controlTest == "user_confirmed_scroll" ? " You confirmed scrolling worked in another app." : controlTest == "user_reported_no_scroll" ? " You reported that scrolling did not work in another app." : " Other-app scrolling has not been confirmed.")
         message = summary
-        let value = DiagnosticReport(schemaVersion:4,generatedAt:generatedAt,executableSHA256:digest,diagnosticBuild:"diagnostics-4",
+        let value = DiagnosticReport(schemaVersion:5,generatedAt:generatedAt,executableSHA256:digest,diagnosticBuild:"diagnostics-5",
 
             appVersion:Bundle.main.object(forInfoDictionaryKey:"CFBundleShortVersionString") as? String ?? "unknown",
             build:Bundle.main.object(forInfoDictionaryKey:"CFBundleVersion") as? String ?? "unknown",
@@ -474,6 +485,10 @@ struct DiagnosticsView: View {
 }
 
 func testDiagnostics() {
+    var levelCheck = DiagnosticSampleSummary(phase:"test")
+    levelCheck.measureInput([0,0.5,-1,1,0.999])
+    precondition(levelCheck.inputPeak == 1 && levelCheck.clippedSamples == 3)
+
     func sample(_ phase:String, _ carrier:Double, _ contrast:Double, _ motion:Int) -> DiagnosticSampleSummary {
         var s = DiagnosticSampleSummary(phase:phase)
         s.analyzedFrames = 100; s.carrierSum = carrier*100; s.contrastSum = contrast*100; s.motionFrames = motion
@@ -502,7 +517,7 @@ func testDiagnostics() {
     precondition(Diagnostics.result([off,still,motion,alternateOff,alternateStill]).contains("tone and movement"))
     let data = try! JSONEncoder().encode(motion)
     let keys = Set((try! JSONSerialization.jsonObject(with:data) as! [String:Any]).keys)
-    precondition(keys == Set(["status","startedAt","durationSeconds","plannedSeconds","calibrationFrames","baselineChangeMaxDB","wouldScrollFrames","wouldScrollPoints","returnStopFrames","directionSwitches","frequencyHz","inputCallbacks","outputCallbacks","inputErrors","lastInputError","missingOutputBuffers","phase","blocks","samples","analyzedFrames","motionFrames","carrierSum","contrastSum","maximumBlockGapMS","inputRate","outputRate","volumeState"]))
+    precondition(keys == Set(["status","startedAt","durationSeconds","plannedSeconds","calibrationFrames","baselineChangeMaxDB","wouldScrollFrames","wouldScrollPoints","returnStopFrames","directionSwitches","frequencyHz","inputCallbacks","outputCallbacks","inputErrors","lastInputError","missingOutputBuffers","phase","blocks","inputPeak","clippedSamples","samples","analyzedFrames","motionFrames","carrierSum","contrastSum","maximumBlockGapMS","inputRate","outputRate","volumeState"]))
     let reportCheck = Diagnostics(tone:20000,amplitude:0.008)
     reportCheck.controlTest = "user_confirmed_scroll"
     reportCheck.finish("Sonar’s tone and movement were detected. This test does not verify control of another app.")
@@ -512,7 +527,7 @@ func testDiagnostics() {
     print("PASS diagnostic result classification, report metadata, optional summary and aggregate-only sample schema")
 }
 
-private enum DiagnosticHardware {
+enum DiagnosticHardware {
     // Apple model identifiers, https://support.apple.com/en-us/108052 (2026-09-11).
     // Unknown models remain explicit; no serial-number lookup or network request.
     static let names: [String:String] = [
@@ -535,6 +550,8 @@ private enum DiagnosticHardware {
         "Mac15,11": "MacBook Pro (16-inch, Nov 2023)",
         "Mac14,5": "MacBook Pro (14-inch, 2023)",
         "Mac14,9": "MacBook Pro (14-inch, 2023)",
+        "Mac16,12": "MacBook Air (13-inch, M4, 2025)",
+        "Mac16,13": "MacBook Air (15-inch, M4, 2025)",
         "Mac14,6": "MacBook Pro (16-inch, 2023)",
         "Mac14,10": "MacBook Pro (16-inch, 2023)",
         "Mac14,7": "MacBook Pro (13-inch, M2, 2022)",
@@ -548,6 +565,13 @@ private enum DiagnosticHardware {
         "MacBookPro16,1": "MacBook Pro (16-inch, 2019)",
         "MacBookPro16,4": "MacBook Pro (16-inch, 2019)",
     ]
+    static func modelIdentifier() -> String {
+        var size = 0
+        guard sysctlbyname("hw.model",nil,&size,nil,0) == 0, size > 0 else { return "Unknown" }
+        var chars = [CChar](repeating:0,count:size)
+        guard sysctlbyname("hw.model",&chars,&size,nil,0) == 0 else { return "Unknown" }
+        return String(cString:chars)
+    }
     static func chip() -> String {
         var size = 0
         guard sysctlbyname("machdep.cpu.brand_string",nil,&size,nil,0) == 0, size > 0 else { return "Unknown" }

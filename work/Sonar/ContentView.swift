@@ -58,6 +58,7 @@ struct ContentView: View {
                 }.listStyle(.sidebar)
                 VStack(alignment:.leading,spacing:14) {
                     Label("Built-in audio",systemImage:"speaker.wave.2").font(.caption).foregroundStyle(.secondary)
+                    Button { sonar.stop(); sonar.setupOpen = true } label: { Label("Recalibrate…",systemImage:"waveform.path") }.buttonStyle(.plain)
                     Button { showAudioSettings = true } label: { Label("Audio settings…",systemImage:"slider.horizontal.3") }.buttonStyle(.plain)
                     Button { sonar.stop(); sonar.diagnosticsOpen = true; showDiagnostics = true } label: { Label("Run diagnostics…",systemImage:"stethoscope") }.buttonStyle(.plain)
                         .sheet(isPresented:$showDiagnostics,onDismiss:{ sonar.diagnosticsOpen = false }) {
@@ -147,6 +148,12 @@ struct ContentView: View {
                 }.font(.caption).foregroundStyle(.secondary).padding(.horizontal,24).padding(.vertical,14)
             }.frame(maxWidth:.infinity,maxHeight:.infinity)
         }.frame(minWidth:860,minHeight:620)
+        .sheet(isPresented:$sonar.setupOpen) {
+            AppSheet(title:"Set up Sonar",close:{ sonar.setupOpen = false },showDone:false,width:420,height:370) {
+                DeviceSetupView(sonar:sonar,close:{ sonar.setupOpen = false })
+            }
+        }
+        .onAppear { if SetupProfile.load() == nil { sonar.setupOpen = true } }
         .onExitCommand { sonar.stop() }
     }
 }
@@ -269,6 +276,9 @@ struct HowItWorksView: View {
 struct AppSheet<Content: View>: View {
     let title: String
     let close: () -> Void
+    var showDone = true
+    var width: CGFloat = 500
+    var height: CGFloat = 560
     @ViewBuilder var content: () -> Content
     var body: some View {
         VStack(spacing:0) {
@@ -281,9 +291,11 @@ struct AppSheet<Content: View>: View {
             Divider()
             ScrollView { content().padding(24).frame(maxWidth:.infinity,alignment:.leading) }
                 .frame(maxWidth:.infinity,maxHeight:.infinity)
-            Divider()
-            HStack { Spacer(); Button("Done",action:close).buttonStyle(.borderedProminent).controlSize(.large).keyboardShortcut(.cancelAction) }.padding(16)
-        }.frame(width:500,height:560).background(Color(nsColor:.windowBackgroundColor))
+            if showDone {
+                Divider()
+                HStack { Spacer(); Button("Done",action:close).buttonStyle(.borderedProminent).controlSize(.large).keyboardShortcut(.cancelAction) }.padding(16)
+            }
+        }.frame(width:width,height:height).background(Color(nsColor:.windowBackgroundColor))
     }
 }
 

@@ -30,6 +30,14 @@ Use the built-in speakers and microphone. Stop if the tone is audible or uncomfo
 
 **FYI for pets:** The default tone is 20 kHz. [Dogs and cats can hear this frequency](https://www.lsu.edu/vetmed/deafness/hearingrange.php). Use Sonar away from pets and stop if they seem uncomfortable. Pet safety and sound levels across Mac models still need evaluation.
 
+## First-launch setup (local 0.1.4 test build)
+
+Sonar checks which sound setting works on your Mac. Rest your hands for a 10-second sound check. Then follow the prompts to lift and lower your hand, and stop when it says STOP. Settings are saved only after those checks pass.
+
+If a setting fails, you can try the next sound setting or save a report to share for help. Nothing is sent automatically. Use **Recalibrate…** in the sidebar to run setup again. Starting a new setup clears the previous setup approval; finish the checks before starting gestures again.
+
+This is being tested locally before release. Setup checks basic sensing and simulated gesture decisions; try each mode yourself afterward. Changing volume during a running session restarts its calibration.
+
 ## Gestures
 
 - **Scroll:** Lift your hand up and down to scroll. Do a double tap (in the air!) to reverse directions.
