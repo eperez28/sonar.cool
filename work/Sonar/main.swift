@@ -392,18 +392,32 @@ final class Sonar: ObservableObject {
         }
     }
     init() {
+        if let profile = SetupProfile.load() { frequency = profile.frequency; level = profile.amplitude }
         refreshSpeakerVolume()
         volumeTimer = Timer.scheduledTimer(withTimeInterval:0.5,repeats:true) { [weak self] _ in self?.refreshSpeakerVolume() }
     }
     deinit { volumeTimer?.invalidate() }
+    private var lastSpeakerVolume: SpeakerVolume.Snapshot?
     func refreshSpeakerVolume() {
-        speakerState = SpeakerVolume.current()
+        let current = SpeakerVolume.snapshot()
+        let changed = lastSpeakerVolume.map { $0 != current } ?? false
+        lastSpeakerVolume = current
+        speakerState = current.state
+        guard changed, running, !diagnosticsOpen else { return }
+        // Invalidate queued readings and stop momentum before creating a new baseline.
+        // Each volume step restarts calibration, so gestures resume only after
+        // the final level has stayed steady for the full calibration interval.
+        stop()
+        reading = nil
+        begin()
+        if running { status = "Volume changed — keep your hand still while Sonar calibrates" }
     }
     private var engine: HardwareAudio?
     private let analysisQueue = DispatchQueue(label:"sonar.analysis")
     private var timer: Timer?
     var globalControlsReady = false
     private var session = UUID()
+    @Published var setupOpen = false
     @Published var diagnosticsOpen = false
     var cancelDiagnostics: (() -> Void)?
     private var showingVolumeNotice = false
@@ -444,6 +458,9 @@ final class Sonar: ObservableObject {
         guard !running else { return }
         do {
             let tone = frequency
+            let profile = SetupProfile.load()
+            let threshold = profile?.frequency == tone && profile?.restVolumes == SpeakerVolume.snapshot().volumes
+                ? (profile?.restThreshold ?? RestMotionFilter.minimum) : RestMotionFilter.minimum
             let device = try builtInDevice(scope:kAudioDevicePropertyScopeInput)
             var rate = 0.0; var size: UInt32 = 8
             var address = AudioObjectPropertyAddress(mSelector:kAudioDevicePropertyNominalSampleRate,mScope:kAudioObjectPropertyScopeGlobal,mElement:kAudioObjectPropertyElementMain)
@@ -483,7 +500,7 @@ final class Sonar: ObservableObject {
                             guard let self = self, self.session == id, self.running else { return }
                             self.reading = r; self.status = r.direction
                             self.calibrationRemaining = r.calibrationRemaining
-                            self.reader.consume(r,duration:Double(analyzer.hop)/rate)
+                            self.reader.consume(RestMotionFilter.apply(r,threshold:threshold),duration:Double(analyzer.hop)/rate)
                         }
                     }
                 }
@@ -743,6 +760,8 @@ if CommandLine.arguments.contains("--self-test") {
     testEchoFlow()
     testPosition()
     testSpeakerVolume()
+    testDeviceSetup()
+    testVolumeRecalibration()
     testDiagnostics()
     testDistance()
     testZoomMotion()
@@ -840,4 +859,28 @@ if CommandLine.arguments.contains("--self-test") {
 } else {
     let app = NSApplication.shared
     let delegate = AppDelegate(); app.delegate = delegate; app.run()
+}
+
+// A stationary reflection amplified after calibration must not retain its old baseline.
+func testVolumeRecalibration() {
+    let rate = 48000.0, tone = 20000.0
+    func frame(_ gain: Float) -> [Float] {
+        (0..<8192).map { i in
+            let t = Double(i) / rate
+            return gain * Float(sin(2 * .pi * tone * t) + 0.1 * sin(2 * .pi * (tone - 90) * t))
+        }
+    }
+    let old = Analyzer(rate:rate,tone:tone)
+    for _ in 0..<65 { _ = old.analyze(frame(0.01)) }
+    _ = old.analyze(frame(0.1))
+    precondition(old.analyze(frame(0.1)).direction == "MOVING AWAY")
+    let fresh = Analyzer(rate:rate,tone:tone)
+    for _ in 0..<59 {
+        precondition(fresh.analyze(frame(0.1)).calibrationRemaining != nil)
+    }
+    for _ in 0..<10 {
+        let reading = fresh.analyze(frame(0.1))
+        precondition(reading.direction != "MOVING AWAY" && reading.direction != "APPROACHING")
+    }
+    print("Volume recalibration regression checks passed")
 }

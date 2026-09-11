@@ -8,7 +8,7 @@ Control your Mac with a wave of your hand. Sonar uses your Mac’s built-in spea
 
 ## Download
 
-[Download Sonar v0.1.3 for Apple silicon](https://github.com/eperez28/sonar.cool/releases/download/v0.1.3/Sonar-0.1.3-arm64.dmg). Open the DMG and drag Sonar into Applications. Requires macOS 14 or later. This is an experimental pre-release; testing across MacBook models is ongoing.
+[Download Sonar v0.1.4 for Apple silicon](https://github.com/eperez28/sonar.cool/releases/download/v0.1.4/Sonar-0.1.4-arm64.dmg). Open the DMG and drag Sonar into Applications. Requires macOS 14 or later. This is an experimental pre-release; testing across MacBook models is ongoing.
 
 ## Run from source
 
@@ -29,6 +29,14 @@ Allow microphone access and Accessibility access for controlling other apps. Cho
 Use the built-in speakers and microphone. Stop if the tone is audible or uncomfortable.
 
 **FYI for pets:** The default tone is 20 kHz. [Dogs and cats can hear this frequency](https://www.lsu.edu/vetmed/deafness/hearingrange.php). Use Sonar away from pets and stop if they seem uncomfortable. Pet safety and sound levels across Mac models still need evaluation.
+
+## Optional setup
+
+Sonar checks which sound setting works on your Mac. Rest your hands for a 10-second sound check. Then follow the prompts to lift and lower your hand, and stop when it says STOP. Settings are saved only after those checks pass.
+
+If a setting fails, you can try the next sound setting or save a report to share for help. Nothing is sent automatically. Open **Settings → Recalibrate** to run setup. Setup is optional. You can use your current settings, and a failed or cancelled check keeps them unchanged. Moving into position before GO is not scored.
+
+Setup checks basic sensing and simulated gesture decisions; try each mode yourself afterward. Changing volume during a running session restarts its calibration. Setup also learns a small resting-motion tolerance, checks it on a separate resting sample, and saves it only when intentional movement and stopping pass. Normal use applies that tolerance at the tested frequency and volume; rerun setup to learn it at a different volume.
 
 ## Gestures
 
