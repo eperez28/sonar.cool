@@ -18,6 +18,7 @@ extension DemoMode {
 }
 
 struct ContentView: View {
+    @State private var showSettings = false
     @State private var showHowItWorks = false
     @State private var showAudioSettings = false
     @State private var showDiagnostics = false
@@ -25,8 +26,10 @@ struct ContentView: View {
     @ObservedObject var reader: Reader
     init(sonar: Sonar) { self.sonar = sonar; reader = sonar.reader }
     private var selection: Binding<DemoMode?> {
-        Binding(get:{ reader.mode },set:{ mode in
-            guard let mode, mode != reader.mode else { return }
+        Binding(get:{ showSettings ? nil : reader.mode },set:{ mode in
+            guard let mode else { return }
+            showSettings = false
+            guard mode != reader.mode else { return }
             sonar.stop(); reader.mode = mode
         })
     }
@@ -36,6 +39,35 @@ struct ContentView: View {
         return build.map { "Version \(version) (\($0))" } ?? "Version \(version)"
     }
     private var isExternal: Bool { reader.usesExternalControl }
+    private var settingsPage: some View {
+        ScrollView {
+            VStack(alignment:.leading,spacing:24) {
+                Text("Settings").font(.system(size:26,weight:.semibold))
+                VStack(spacing:0) {
+                    settingsRow("Recalibrate",symbol:"waveform.path",detail:"Find a sound setting and resting-hand tolerance for your Mac.") { sonar.stop(); sonar.setupOpen = true }
+                    Divider().padding(.leading,52)
+                    settingsRow("Audio settings",symbol:"slider.horizontal.3",detail:"Adjust the test sound and view your audio connection.") { showAudioSettings = true }
+                    Divider().padding(.leading,52)
+                    settingsRow("Run diagnostics",symbol:"stethoscope",detail:"Check what’s working and save a report for help.") { sonar.stop(); sonar.diagnosticsOpen = true; showDiagnostics = true }
+                }
+                .background(Color(nsColor:.controlBackgroundColor),in:RoundedRectangle(cornerRadius:10))
+                .overlay(RoundedRectangle(cornerRadius:10).stroke(Color.primary.opacity(0.08),lineWidth:1))
+            }.padding(ScreenLayout.inset).frame(maxWidth:ScreenLayout.width,alignment:.leading).frame(maxWidth:.infinity,alignment:.leading)
+        }.frame(maxWidth:.infinity,maxHeight:.infinity)
+    }
+    private func settingsRow(_ title:String,symbol:String,detail:String,action:@escaping () -> Void) -> some View {
+        Button(action:action) {
+            HStack(spacing:14) {
+                Image(systemName:symbol).font(.system(size:19)).frame(width:24).foregroundStyle(.secondary)
+                VStack(alignment:.leading,spacing:4) {
+                    Text(title).font(.system(size:15,weight:.medium)).foregroundStyle(.primary)
+                    Text(detail).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+                }
+                Spacer(minLength:12)
+                Image(systemName:"chevron.right").font(.system(size:11,weight:.semibold)).foregroundStyle(.tertiary)
+            }.padding(18).frame(maxWidth:.infinity,alignment:.leading).contentShape(Rectangle())
+        }.buttonStyle(.plain)
+    }
     var body: some View {
         HStack(spacing:0) {
             VStack(alignment:.leading,spacing:0) {
@@ -58,9 +90,7 @@ struct ContentView: View {
                 }.listStyle(.sidebar)
                 VStack(alignment:.leading,spacing:14) {
                     Label("Built-in audio",systemImage:"speaker.wave.2").font(.caption).foregroundStyle(.secondary)
-                    Button { sonar.stop(); sonar.setupOpen = true } label: { Label("Recalibrate…",systemImage:"waveform.path") }.buttonStyle(.plain)
-                    Button { showAudioSettings = true } label: { Label("Audio settings…",systemImage:"slider.horizontal.3") }.buttonStyle(.plain)
-                    Button { sonar.stop(); sonar.diagnosticsOpen = true; showDiagnostics = true } label: { Label("Run diagnostics…",systemImage:"stethoscope") }.buttonStyle(.plain)
+                    Button { showSettings = true } label: { Label("Settings",systemImage:"gearshape") }.buttonStyle(.plain)
                         .sheet(isPresented:$showDiagnostics,onDismiss:{ sonar.diagnosticsOpen = false }) {
                             AppSheet(title:"Diagnostics",close:{ showDiagnostics = false }) { DiagnosticsView(sonar:sonar) }
                         }
@@ -72,10 +102,10 @@ struct ContentView: View {
                         AppSheet(title:"Audio settings",close:{ showAudioSettings = false }) { AudioSettingsView(sonar:sonar) }
                     }
                     Text(versionLabel).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
-                    Text("Stop anywhere  ⌃⌥⌘Space").font(.system(size:10)).foregroundStyle(.secondary)
                 }.labelStyle(SidebarActionLabelStyle()).padding(20)
             }.frame(width:195).background(.regularMaterial)
             Divider()
+            if showSettings { settingsPage } else {
             VStack(spacing:0) {
                 HStack(alignment:.center,spacing:20) {
                     Button {
@@ -147,13 +177,13 @@ struct ContentView: View {
                     Text("Audio stays on your Mac.")
                 }.font(.caption).foregroundStyle(.secondary).padding(.horizontal,24).padding(.vertical,14)
             }.frame(maxWidth:.infinity,maxHeight:.infinity)
+            }
         }.frame(minWidth:860,minHeight:620)
         .sheet(isPresented:$sonar.setupOpen) {
             AppSheet(title:"Set up Sonar",close:{ sonar.setupOpen = false },showDone:false,width:420,height:370) {
                 DeviceSetupView(sonar:sonar,close:{ sonar.setupOpen = false })
             }
         }
-        .onAppear { if SetupProfile.load() == nil { sonar.setupOpen = true } }
         .onExitCommand { sonar.stop() }
     }
 }
@@ -302,7 +332,7 @@ struct AppSheet<Content: View>: View {
 private struct SidebarActionLabelStyle: LabelStyle {
     func makeBody(configuration: Configuration) -> some View {
         HStack(alignment: .center, spacing: 8) {
-            configuration.icon.frame(width: 18, alignment: .center)
+            configuration.icon.frame(width: 22, alignment: .center)
             configuration.title
         }
         .frame(maxWidth: .infinity, alignment: .leading)

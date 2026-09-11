@@ -17,3 +17,5 @@ This measures basic acoustic sensing and simulated detector decisions. It does n
 - The move/stop hand trial and Maxwell's device trial remain physical acceptance checks. A passing build does not establish that his issue is fixed.
 
 UX correction: A weak/unstable initial signal still proceeds to the movement and stopping prompts. Evaluate the entire trial afterward; never save a failed trial. Only audio/permission/route failures interrupt early.
+
+Build 11: setup is optional and preserves prior settings. Positioning is unscored. A separate resting sample learns a bounded signal threshold; a second resting sample, intentional movement, and stopping validate it before saving. Runtime uses the same filter only for the tested frequency and volume. Physical acceptance remains pending.

@@ -5,6 +5,24 @@ import CoreAudio
 import CryptoKit
 import UniformTypeIdentifiers
 
+// Frozen after a separate resting sample; never learns from intentional motion.
+struct RestMotionFilter {
+    static let minimum: Float = 0.0003
+    static let maximum: Float = 0.003
+    static func learn(_ samples: [Float]) -> Float? {
+        let values = samples.filter { $0.isFinite && $0 >= 0 }.sorted()
+        guard values.count >= 60 else { return nil }
+        let threshold = max(minimum,values[min(values.count-1,Int(Double(values.count)*0.95))] * 1.5)
+        return threshold <= maximum ? threshold : nil
+    }
+    static func apply(_ input: Reading, threshold: Float) -> Reading {
+        guard input.calibrationRemaining == nil, input.strength <= threshold else { return input }
+        var r = input
+        r.direction = "Still / no clear motion"; r.strength = 0; r.waveBands = Array(repeating:0,count:8)
+        return r
+    }
+}
+
 // Aggregate-only setup evidence. Never persists microphone buffers or spectra.
 struct SetupMeasurement: Codable {
     var frames = 0
@@ -39,6 +57,8 @@ struct SetupCandidate: Codable {
     var frequency: Double
     var off = SetupMeasurement()
     var still = SetupMeasurement()
+    var resting = SetupMeasurement()
+    var restThreshold: Float?
     var preparation = SetupMeasurement()
     var movement = SetupMeasurement()
     var stopped = SetupMeasurement()
@@ -54,22 +74,24 @@ struct SetupCandidate: Codable {
     var stable: Bool {
         off.frames >= 40 && still.frames >= 80 && still.contrast >= 20 &&
         still.carrier - off.carrier >= 6 && still.clipped == 0 &&
-        still.actions == 0 && still.toward == 0 && still.away == 0 && audioErrors == 0
+        audioErrors == 0
     }
     var failureReasons: [String] {
         var reasons: [String] = []
+        if restThreshold == nil { reasons.append("Resting motion was too strong or the resting sample was incomplete.") }
+        if resting.frames < 60 { reasons.append("The resting check was incomplete.") }
         if audioErrors > 0 { reasons.append("The audio connection reported errors.") }
-        if off.frames < 40 || still.frames < 80 || preparation.frames < 20 || movement.frames < 80 || stopped.frames < 60 { reasons.append("Not enough microphone readings arrived.") }
+        if off.frames < 40 || still.frames < 80 || movement.frames < 80 || stopped.frames < 60 { reasons.append("Not enough microphone readings arrived.") }
         if still.contrast < 20 || still.carrier - off.carrier < 6 { reasons.append("Sonar couldn’t hear its test sound clearly enough.") }
-        if [still,preparation,movement,stopped].contains(where: { $0.clipped > 0 }) { reasons.append("The microphone input clipped.") }
-        for (name, value) in [("during the sound check",still),("before GO",preparation),("after STOP",stopped)] {
+        if [still,movement,stopped].contains(where: { $0.clipped > 0 }) { reasons.append("The microphone input clipped.") }
+        for (name, value) in [("while resting",resting),("after STOP",stopped)] {
             if value.actions > 0 || value.toward > 0 || value.away > 0 { reasons.append("Sonar detected unwanted gestures \(name).") }
         }
         if movement.toward < 3 || movement.away < 3 || movement.actions == 0 { reasons.append("Sonar didn’t clearly detect both parts of your hand movement.") }
         return reasons
     }
     var verified: Bool {
-        stable && preparation.frames >= 20 && preparation.actions == 0 && preparation.toward == 0 && preparation.away == 0 && preparation.clipped == 0 && movement.frames >= 80 && movement.toward >= 3 && movement.away >= 3 &&
+        stable && resting.frames >= 60 && resting.actions == 0 && resting.toward == 0 && resting.away == 0 && resting.clipped == 0 && restThreshold != nil && movement.frames >= 80 && movement.toward >= 3 && movement.away >= 3 &&
         movement.actions > 0 && movement.clipped == 0 &&
         stopped.frames >= 60 && stopped.actions == 0 && stopped.toward == 0 && stopped.away == 0 && stopped.clipped == 0
     }
@@ -81,6 +103,8 @@ struct SetupProfile: Codable {
     let amplitude: Double
     let model: String
     let date: String
+    var restThreshold: Float? = nil
+    var restVolumes: [Float?]? = nil
     static func load() -> Self? {
         guard let data = UserDefaults.standard.data(forKey:key),
               let value = try? JSONDecoder().decode(Self.self,from:data), value.revision == 1,
@@ -92,10 +116,10 @@ struct SetupProfile: Codable {
 }
 
 final class DeviceSetup: ObservableObject {
-    enum Stage { case intro, permission, off, calibrating, still, ready, prepare, movement, stopped, failed, passed, saved }
+    enum Stage { case intro, permission, off, calibrating, still, ready, prepare, learnRest, verifyRest, movement, stopped, failed, passed, saved }
     @Published private(set) var stage = Stage.intro
     @Published private(set) var remaining = 0
-    @Published private(set) var detail = "We’ll find a sound setting for your Mac, then ask you to move your hand and stop. Each check takes about 25 seconds."
+    @Published private(set) var detail = "We’ll find a sound setting for your Mac, then ask you to move your hand and stop. Each check takes about 30 seconds."
     @Published private(set) var candidates: [SetupCandidate] = []
     private let frequencies = [20000.0,19000,18000]
     private var index = 0
@@ -113,7 +137,8 @@ final class DeviceSetup: ObservableObject {
     private var taps = DoublePushDetector()
     private var swipe = ImmediateWave()
     private var zoom = ZoomMotion()
-    var active: Bool { [.permission,.off,.calibrating,.still,.ready,.prepare,.movement,.stopped].contains(stage) }
+    private var restSamples: [Float] = []
+    var active: Bool { [.permission,.off,.calibrating,.still,.ready,.prepare,.learnRest,.verifyRest,.movement,.stopped].contains(stage) }
     var cueUp: Bool { ((6 - remaining) / 2) % 2 == 0 }
     var countdown: Int { remaining + (stage == .off ? 7 : stage == .calibrating ? 4 : 0) }
     var canSave: Bool { stage == .passed && current.verified }
@@ -123,6 +148,7 @@ final class DeviceSetup: ObservableObject {
         case .permission: return "Allow microphone access"
         case .off,.calibrating,.still: return "1. Check the sound"
         case .ready: return "2. Move your hand"
+        case .learnRest,.verifyRest: return "Rest your hand naturally"
         case .prepare: return "Get ready — hold still"
         case .movement: return cueUp ? "GO — lift your hand" : "GO — lower your hand"
         case .stopped: return "STOP — hold your hand still"
@@ -142,7 +168,6 @@ final class DeviceSetup: ObservableObject {
     }
     func start() {
         halt(); candidates = []; nextAvailable = false; index = 0
-        UserDefaults.standard.removeObject(forKey:SetupProfile.key)
         current = SetupCandidate(frequency:frequencies[0]); volume = SpeakerVolume.snapshot()
         guard volume?.state == .ready else { fail("Unmute your built-in speakers and raise the volume, then try again."); return }
         transition(.permission,message:"If macOS asks, allow Sonar to use your microphone.")
@@ -157,7 +182,7 @@ final class DeviceSetup: ObservableObject {
     }
     private func resetDetectors() { scroll = ScrollMotion(); taps = DoublePushDetector(); swipe = ImmediateWave(); zoom = ZoomMotion() }
     private func beginCandidate() {
-        current = SetupCandidate(frequency:frequencies[index]); resetDetectors()
+        current = SetupCandidate(frequency:frequencies[index]); restSamples = []; resetDetectors()
         transition(.off,seconds:3,message:"First, rest your hands for 10 seconds while we check the sound. Then you’ll lift and lower your hand.")
         runAudio(amplitude:0)
     }
@@ -203,7 +228,11 @@ final class DeviceSetup: ObservableObject {
         if stage == .prepare && time - phaseStart >= 1 { current.preparation.input(block) }
         if stage == .movement { current.movement.input(block) }
         if stage == .stopped { current.stopped.input(block) }
-        for r in readings {
+        if stage == .verifyRest { current.resting.input(block) }
+        for raw in readings {
+            if stage == .learnRest, raw.calibrationRemaining == nil { restSamples.append(raw.strength) }
+            let r = [.verifyRest,.movement,.stopped].contains(stage)
+                ? RestMotionFilter.apply(raw,threshold:current.restThreshold ?? RestMotionFilter.minimum) : raw
             let dt = 2048 / current.inputRate
             var actions = 0
             var scrollCount = 0, swipeCount = 0, zoomCount = 0, tapCount = 0
@@ -216,6 +245,7 @@ final class DeviceSetup: ObservableObject {
             case .off: current.off.record(r,actions:0)
             case .still: if r.calibrationRemaining == nil { current.still.record(r,actions:actions,scroll:scrollCount,swipe:swipeCount,zoom:zoomCount,taps:tapCount) }
             case .prepare: if time - phaseStart >= 1 { current.preparation.record(r,actions:actions,scroll:scrollCount,swipe:swipeCount,zoom:zoomCount,taps:tapCount) }
+            case .verifyRest: current.resting.record(r,actions:actions,scroll:scrollCount,swipe:swipeCount,zoom:zoomCount,taps:tapCount)
             case .movement: current.movement.record(r,actions:actions,scroll:scrollCount,swipe:swipeCount,zoom:zoomCount,taps:tapCount)
             case .stopped:
                 // Allow one second to react to STOP and let normal momentum end.
@@ -246,6 +276,14 @@ final class DeviceSetup: ObservableObject {
         case .still:
             transition(.ready,message:"Now we’ll test your hand. Press I’m ready, place your palm above the keyboard, and wait for GO. Then lift and lower it.")
         case .prepare:
+            restSamples = []; resetDetectors()
+            transition(.learnRest,seconds:3,message:"Let your palm hover comfortably above the keyboard. Small natural movements are okay.")
+        case .learnRest:
+            current.restThreshold = RestMotionFilter.learn(restSamples)
+            resetDetectors()
+            transition(.verifyRest,seconds:3,message:"Stay relaxed. We’re checking that normal resting movement is ignored before asking you to move.")
+        case .verifyRest:
+            resetDetectors()
             transition(.movement,seconds:6,message:"Follow the green arrow: lift for ↑, lower for ↓. Stop when the hand turns red.")
         case .movement: transition(.stopped,seconds:5,message:"Keep your hand in place and still. We’re checking that gestures stop too.")
         case .stopped:
@@ -296,8 +334,9 @@ final class DeviceSetup: ObservableObject {
         guard canSave, SpeakerVolume.snapshot() == volume else {
             fail("Your audio settings changed. Run the check again before saving."); return
         }
-        let profile = SetupProfile(revision:1,frequency:current.frequency,amplitude:0.008,
+        var profile = SetupProfile(revision:1,frequency:current.frequency,amplitude:0.008,
             model:DiagnosticHardware.modelIdentifier(),date:ISO8601DateFormatter().string(from:Date()))
+        profile.restThreshold = current.restThreshold; profile.restVolumes = volume?.volumes
         profile.save(); sonar.frequency = profile.frequency; sonar.level = profile.amplitude
         transition(.saved,message:"You’re ready to try Sonar. Recalibrate any time from the sidebar.")
     }
@@ -318,7 +357,7 @@ final class DeviceSetup: ObservableObject {
             let result: String
             let candidates: [SetupCandidate]
             let finalCheck: SetupCandidate
-            let limitations = "Aggregate-only local measurements; no audio, device names, serial numbers, or window contents. Detector actions are simulated without controlling apps. This checks basic sensing and stopping, not every gesture or other-app delivery. Thresholds are provisional."
+            let limitations = "Aggregate-only local measurements; no audio, device names, serial numbers, or window contents. Detector actions are simulated without controlling apps. This checks basic sensing and stopping, not every gesture or other-app delivery. Positioning before GO is recorded for context but is not scored. Thresholds are provisional."
         }
         let value = Report(generatedAt:ISO8601DateFormatter().string(from:Date()),model:DiagnosticHardware.modelIdentifier(),chip:DiagnosticHardware.chip(),
             macOS:ProcessInfo.processInfo.operatingSystemVersionString,version:Bundle.main.object(forInfoDictionaryKey:"CFBundleShortVersionString") as? String ?? "development",
@@ -361,7 +400,7 @@ struct DeviceSetupView: View {
             case .intro,.failed:
                 Button(setup.stage == .intro ? "Start setup" : setup.nextAvailable ? "Try next sound setting" : "Try again") { if setup.nextAvailable { setup.tryNext() } else { setup.start() } }.buttonStyle(.borderedProminent)
                 if setup.stage == .failed { Button("Save report…") { setup.saveReport() } }
-                Button("Later") { close() }
+                Button("Use current settings") { close() }
             case .ready:
                 Button("I’m ready") { setup.move() }.buttonStyle(.borderedProminent)
                 Button("Stop setup") { setup.cancel() }
@@ -383,11 +422,20 @@ func testDeviceSetup() {
     c.off.frames = 80; c.off.carrierSum = -130 * 80
     c.still.frames = 100; c.still.carrierSum = -90 * 100; c.still.contrastSum = 35 * 100
     precondition(c.stable && !c.verified)
+    c.restThreshold = 0.0003; c.resting.frames = 80
     c.movement.frames = 100; c.movement.toward = 5; c.movement.away = 5; c.movement.actions = 1
     c.preparation.frames = 40
     c.stopped.frames = 80
     precondition(c.verified)
-    var failed = c; failed.still.actions = 1; precondition(!failed.stable && !failed.verified)
+    // Positioning is unscored. The reported before-GO failure must not
+    // reject a trial whose sound, movement, and stop checks passed.
+    var positioning = c
+    positioning.preparation.actions = 10
+    positioning.preparation.toward = 15
+    positioning.preparation.frames = 0
+    positioning.preparation.clipped = 1
+    testCheck(positioning.verified && positioning.failureReasons.isEmpty,"Positioning incorrectly failed setup")
+    var failed = c; failed.resting.actions = 1; precondition(!failed.verified)
     failed = c; failed.stopped.away = 1; precondition(!failed.verified)
     failed = c; failed.still.contrastSum = 4 * 100; precondition(!failed.stable)
     failed = c; failed.still.clipped = 1; precondition(!failed.stable)
@@ -398,16 +446,23 @@ func testDeviceSetup() {
     var reported = SetupCandidate(frequency:20000)
     reported.off.frames = 102; reported.off.carrierSum = -13273.3591
     reported.still.frames = 102; reported.still.carrierSum = -13265.3860; reported.still.contrastSum = 407.4118
-    precondition(!reported.stable)
+    precondition(!reported.verified)
     reported.off.carrierSum = -13229.5532
     reported.still.carrierSum = -11606.9490; reported.still.contrastSum = 2019.3539
     reported.still.away = 6; reported.still.toward = 12; reported.still.actions = 48
-    precondition(!reported.stable)
+    precondition(!reported.verified)
     // The louder, more detectable 18 kHz run must also fail for phantom actions.
     reported.off.carrierSum = -13234.6976
     reported.still.carrierSum = -9402.007; reported.still.contrastSum = 4146.8470
     reported.still.actions = 92
-    precondition(!reported.stable)
+    precondition(!reported.verified)
+    let learned = RestMotionFilter.learn(Array(repeating:Float(0.0005),count:100))!
+    testCheck(learned > 0.0005 && learned < 0.001,"Resting floor was not learned")
+    let rest = Reading(spectrum:[],baseline:[],direction:"MOVING AWAY",carrierDB:-40,snr:40,strength:0.0005)
+    testCheck(RestMotionFilter.apply(rest,threshold:learned).strength == 0,"Rest motion reached detectors")
+    var deliberate = rest; deliberate.strength = 0.004
+    testCheck(RestMotionFilter.apply(deliberate,threshold:learned).direction == "MOVING AWAY","Intentional motion was suppressed")
+    testCheck(RestMotionFilter.learn(Array(repeating:Float(0.01),count:100)) == nil,"Large motion was learned as rest")
     let setup = DeviceSetup(); setup.cancel(); precondition(!setup.canSave)
     print("PASS setup rejects weak signals, phantom actions, clipping, missing audio, incomplete movement and failed stopping")
 }

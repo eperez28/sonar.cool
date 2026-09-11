@@ -423,11 +423,6 @@ final class Sonar: ObservableObject {
     private var showingVolumeNotice = false
     func start() {
         guard !running && !starting && !showingVolumeNotice && !diagnosticsOpen else { return }
-        if [.scroll,.gallery,.zoom].contains(reader.mode) {
-            guard let profile = SetupProfile.load(), profile.frequency == frequency, profile.amplitude == level else {
-                setupOpen = true; status = "Set up Sonar before starting gestures"; return
-            }
-        }
         refreshSpeakerVolume()
         reader.refreshPermission()
         if reader.usesExternalControl && !reader.accessibilityGranted {
@@ -463,6 +458,9 @@ final class Sonar: ObservableObject {
         guard !running else { return }
         do {
             let tone = frequency
+            let profile = SetupProfile.load()
+            let threshold = profile?.frequency == tone && profile?.restVolumes == SpeakerVolume.snapshot().volumes
+                ? (profile?.restThreshold ?? RestMotionFilter.minimum) : RestMotionFilter.minimum
             let device = try builtInDevice(scope:kAudioDevicePropertyScopeInput)
             var rate = 0.0; var size: UInt32 = 8
             var address = AudioObjectPropertyAddress(mSelector:kAudioDevicePropertyNominalSampleRate,mScope:kAudioObjectPropertyScopeGlobal,mElement:kAudioObjectPropertyElementMain)
@@ -502,7 +500,7 @@ final class Sonar: ObservableObject {
                             guard let self = self, self.session == id, self.running else { return }
                             self.reading = r; self.status = r.direction
                             self.calibrationRemaining = r.calibrationRemaining
-                            self.reader.consume(r,duration:Double(analyzer.hop)/rate)
+                            self.reader.consume(RestMotionFilter.apply(r,threshold:threshold),duration:Double(analyzer.hop)/rate)
                         }
                     }
                 }
