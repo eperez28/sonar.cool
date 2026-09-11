@@ -20,6 +20,7 @@ extension DemoMode {
 struct ContentView: View {
     @State private var showHowItWorks = false
     @State private var showAudioSettings = false
+    @State private var showDiagnostics = false
     @ObservedObject var sonar: Sonar
     @ObservedObject var reader: Reader
     init(sonar: Sonar) { self.sonar = sonar; reader = sonar.reader }
@@ -58,6 +59,10 @@ struct ContentView: View {
                 VStack(alignment:.leading,spacing:14) {
                     Label("Built-in audio",systemImage:"speaker.wave.2").font(.caption).foregroundStyle(.secondary)
                     Button { showAudioSettings = true } label: { Label("Audio settings…",systemImage:"slider.horizontal.3") }.buttonStyle(.plain)
+                    Button { sonar.stop(); sonar.diagnosticsOpen = true; showDiagnostics = true } label: { Label("Run diagnostics…",systemImage:"stethoscope") }.buttonStyle(.plain)
+                        .sheet(isPresented:$showDiagnostics,onDismiss:{ sonar.diagnosticsOpen = false }) {
+                            AppSheet(title:"Diagnostics",close:{ showDiagnostics = false }) { DiagnosticsView(sonar:sonar) }
+                        }
                     Button { showHowItWorks.toggle() } label: { Label("How it works",systemImage:"questionmark.circle") }.buttonStyle(.plain)
                         .sheet(isPresented:$showHowItWorks) {
                             AppSheet(title:"How Sonar works",close:{ showHowItWorks = false }) { HowItWorksView() }
@@ -67,7 +72,7 @@ struct ContentView: View {
                     }
                     Text(versionLabel).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
                     Text("Stop anywhere  ⌃⌥⌘Space").font(.system(size:10)).foregroundStyle(.secondary)
-                }.padding(20)
+                }.labelStyle(SidebarActionLabelStyle()).padding(20)
             }.frame(width:195).background(.regularMaterial)
             Divider()
             VStack(spacing:0) {
@@ -279,5 +284,15 @@ struct AppSheet<Content: View>: View {
             Divider()
             HStack { Spacer(); Button("Done",action:close).buttonStyle(.borderedProminent).controlSize(.large).keyboardShortcut(.cancelAction) }.padding(16)
         }.frame(width:500,height:560).background(Color(nsColor:.windowBackgroundColor))
+    }
+}
+
+private struct SidebarActionLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(alignment: .center, spacing: 8) {
+            configuration.icon.frame(width: 18, alignment: .center)
+            configuration.title
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

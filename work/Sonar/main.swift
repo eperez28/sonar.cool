@@ -404,9 +404,11 @@ final class Sonar: ObservableObject {
     private var timer: Timer?
     var globalControlsReady = false
     private var session = UUID()
+    @Published var diagnosticsOpen = false
+    var cancelDiagnostics: (() -> Void)?
     private var showingVolumeNotice = false
     func start() {
-        guard !running && !starting && !showingVolumeNotice else { return }
+        guard !running && !starting && !showingVolumeNotice && !diagnosticsOpen else { return }
         refreshSpeakerVolume()
         reader.refreshPermission()
         if reader.usesExternalControl && !reader.accessibilityGranted {
@@ -503,6 +505,7 @@ final class Sonar: ObservableObject {
         }
     }
     func stop() {
+        cancelDiagnostics?()
         startAttempt = UUID(); starting = false; calibrationRemaining = nil
         session = UUID(); timer?.invalidate(); timer = nil
         engine?.stop(); engine = nil
@@ -597,8 +600,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         }
         statusItem.button?.toolTip = menuState.title
         menuStart.title = permission ? "Start \(sonar.reader.mode.rawValue.lowercased())" : "Start unavailable — Accessibility access needed"
-        menuStart.isEnabled = permission && !sonar.running && !sonar.starting
-        menuStop.isEnabled = sonar.running || sonar.starting
+        menuStart.isEnabled = permission && !sonar.running && !sonar.starting && !sonar.diagnosticsOpen
+        menuStop.isEnabled = sonar.running || sonar.starting || sonar.diagnosticsOpen
         menuPermission.isHidden = permission
     }
     @objc func selectControlFromMenu(_ sender: NSMenuItem) {
@@ -740,6 +743,7 @@ if CommandLine.arguments.contains("--self-test") {
     testEchoFlow()
     testPosition()
     testSpeakerVolume()
+    testDiagnostics()
     testDistance()
     testZoomMotion()
     testDemoModes()

@@ -9,6 +9,14 @@ final class HardwareAudio {
     var output: AudioUnit?
     var inputRate = 0.0
     var outputRate = 0.0
+    // Callback-owned counters are read only after stop() has quiesced both units.
+    var inputDeviceID: AudioDeviceID = 0
+    var outputDeviceID: AudioDeviceID = 0
+    var inputCallbacks = 0
+    var outputCallbacks = 0
+    var inputErrors = 0
+    var lastInputError: OSStatus = 0
+    var missingOutputBuffers = 0
     var phase = 0.0
     var elapsed = 0.0
     let positioning: Bool
@@ -40,6 +48,7 @@ final class HardwareAudio {
     func start() throws {
         var inDevice = try builtInDevice(scope:kAudioDevicePropertyScopeInput)
         var outDevice = try builtInDevice(scope:kAudioDevicePropertyScopeOutput)
+        inputDeviceID = inDevice; outputDeviceID = outDevice
         inputRate = try rate(inDevice); outputRate = try rate(outDevice)
         guard min(inputRate,outputRate)>(ranging ? RangePulse.high : tone)*2+1000 else {
             throw NSError(domain:"Sonar",code:1,userInfo:[NSLocalizedDescriptionKey:"Built-in audio sample rate is too low for this tone."])
@@ -59,15 +68,21 @@ final class HardwareAudio {
         try check(AudioUnitSetProperty(o,kAudioUnitProperty_StreamFormat,kAudioUnitScope_Input,0,&outf,UInt32(MemoryLayout.size(ofValue:outf))),"Set speaker format")
         var micCallback = AURenderCallbackStruct(inputProc: { ref, flags, time, _, count, _ in
             let owner = Unmanaged<HardwareAudio>.fromOpaque(ref).takeUnretainedValue()
-            guard count <= 16384, let unit = owner.input else { return kAudio_ParamError }
+            owner.inputCallbacks += 1
+            guard count <= 16384, let unit = owner.input else {
+                owner.inputErrors += 1; owner.lastInputError = kAudio_ParamError
+                return kAudio_ParamError
+            }
             var list = AudioBufferList(mNumberBuffers:1,mBuffers:AudioBuffer(mNumberChannels:1,mDataByteSize:count*4,mData:UnsafeMutableRawPointer(owner.buffer)))
             let result = AudioUnitRender(unit,flags,time,1,count,&list)
             if result == noErr { owner.receive(Array(UnsafeBufferPointer(start:owner.buffer,count:Int(count)))) }
+            if result != noErr { owner.inputErrors += 1; owner.lastInputError = result }
             return result
         },inputProcRefCon:Unmanaged.passUnretained(self).toOpaque())
         var speakerCallback = AURenderCallbackStruct(inputProc: { ref, _, _, _, count, data in
             let owner = Unmanaged<HardwareAudio>.fromOpaque(ref).takeUnretainedValue()
-            guard let data = data else { return noErr }
+            owner.outputCallbacks += 1
+            guard let data = data else { owner.missingOutputBuffers += 1; return noErr }
             let list = UnsafeMutableAudioBufferListPointer(data)
             for frame in 0..<Int(count) {
                 let envelope = min(1,owner.elapsed/0.15)

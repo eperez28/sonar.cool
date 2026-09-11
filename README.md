@@ -95,3 +95,11 @@ If you’re enjoying Sonar, you can [buy me a coffee](https://buymeacoffee.com/e
 Swipe photo sources and their separate license are listed in [photo credits](assets/gallery/CREDITS.md).
 
 The Yoda practice image was supplied for this demo and retains its separate rights. For concerns about either bundled item, [contact Emanuel](https://x.com/emanperez28).
+
+## Troubleshooting report (development build)
+
+If Sonar says Active but nothing happens—or it scrolls while your hand is still—open **Run diagnostics…** in the sidebar. The test pauses gesture control, checks the microphone and speaker signal, and asks you to move your palm. It measures calibration variation and runs the scroll rules without controlling your apps to check for unwanted scrolling. After it finishes, optional frequency and longer stillness checks add to the same report. You can also send one timed test scroll to another app and tell Sonar whether it worked.
+
+Choose **Save report…** to save a readable `.txt` file with the result first and technical details below. The report includes your Mac model, macOS and app versions, permission status, session-local audio route numbers, volume/mute values, audio callback errors, and summary signal measurements. It contains no recorded audio, screenshots, window titles, device names, serial numbers, or file paths. Nothing is uploaded automatically.
+
+The checks help narrow down a problem; they cannot identify every source of interference. Frequency checks do not change your normal settings. This feature is currently in the diagnostic development build, not the published 0.1.2 installer.
