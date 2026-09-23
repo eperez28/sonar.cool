@@ -2,13 +2,13 @@
 
 Control your Mac with a wave of your hand. Sonar uses your Mac’s built-in speakers and microphone to detect movement.
 
-**This is an experiment in progress.** Requires macOS 14 or later.
+**This is an experiment in progress.** Requires a Mac with Apple silicon (M-series chip) running macOS 14 or later. Sonar does not work on MacBook Neo, and Intel Macs are not guaranteed to work.
 
 [Website](https://sonar.cool) · [Contact Emanuel](https://x.com/emanperez28)
 
 ## Download
 
-[Download Sonar v0.1.4 for Apple silicon](https://github.com/eperez28/sonar.cool/releases/download/v0.1.4/Sonar-0.1.4-arm64.dmg). Open the DMG and drag Sonar into Applications. Requires macOS 14 or later. This is an experimental pre-release; testing across MacBook models is ongoing.
+[Download Sonar v0.1.4 for Apple silicon](https://github.com/eperez28/sonar.cool/releases/download/v0.1.4/Sonar-0.1.4-arm64.dmg). Open the DMG and drag Sonar into Applications. Requires an M-series Mac with macOS 14 or later. The download does not run on Intel Macs, and building from source on Intel is not guaranteed to work. Sonar does not work on MacBook Neo. This is an experimental pre-release; testing across MacBook models is ongoing.
 
 ## Run from source
 
@@ -97,6 +97,8 @@ Inspired by [SoundWave: Using the Doppler Effect to Sense Gestures](https://www.
 Thanks also to Daniel Rapp for [Doppler](https://github.com/DanielRapp/doppler), his browser implementation of SoundWave. We studied his sensing code and demos as a reference while building Sonar.
 
 Sonar's source is available under the [MIT license](LICENSE). The bundled SoundWave paper retains its original copyright and separate terms.
+
+By submitting a pull request, you agree that your contribution is licensed under the same MIT license.
 
 If you’re enjoying Sonar, you can [buy me a coffee](https://buymeacoffee.com/emanuelperez).
 
