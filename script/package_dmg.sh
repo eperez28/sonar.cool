@@ -16,22 +16,22 @@ fi
 SONAR_RELEASE=$(mktemp -d /private/tmp/sonar-release.XXXXXX)
 trap 'rm -rf "$SONAR_RELEASE"' EXIT
 mkdir -p "$SONAR_RELEASE/image"
-ditto --noextattr --norsrc outputs/Sonar.app "$SONAR_RELEASE/image/Sonar.app"
-SONAR_BUNDLE="$SONAR_RELEASE/image/Sonar.app"
+ditto --noextattr --norsrc "outputs/Sonar Classic.app" "$SONAR_RELEASE/image/Sonar Classic.app"
+SONAR_BUNDLE="$SONAR_RELEASE/image/Sonar Classic.app"
 SONAR_VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$SONAR_BUNDLE/Contents/Info.plist")
 /usr/libexec/PlistBuddy -c "Add :SonarSourceRevision string $(git rev-parse HEAD)" "$SONAR_BUNDLE/Contents/Info.plist"
 xattr -cr "$SONAR_BUNDLE"
 codesign --force --options runtime --timestamp --entitlements script/Sonar.entitlements --sign "$SONAR_SIGNING_IDENTITY" "$SONAR_BUNDLE"
 codesign --verify --strict "$SONAR_BUNDLE"
-ditto -c -k --keepParent "$SONAR_BUNDLE" "$SONAR_RELEASE/Sonar.zip"
-xcrun notarytool submit "$SONAR_RELEASE/Sonar.zip" --keychain-profile "$SONAR_NOTARY_PROFILE" --wait
+ditto -c -k --keepParent "$SONAR_BUNDLE" "$SONAR_RELEASE/Sonar Classic.zip"
+xcrun notarytool submit "$SONAR_RELEASE/Sonar Classic.zip" --keychain-profile "$SONAR_NOTARY_PROFILE" --wait
 xcrun stapler staple "$SONAR_BUNDLE"
 xcrun stapler validate "$SONAR_BUNDLE"
 spctl --assess --type execute --verbose=2 "$SONAR_BUNDLE"
 swiftc -target arm64-apple-macosx14.0 -framework AppKit script/render_dmg_background.swift -o "$SONAR_RELEASE/render_dmg_background_bin"
 "$SONAR_RELEASE/render_dmg_background_bin" "$SONAR_RELEASE/background.png"
-SONAR_DMG="outputs/Sonar-${SONAR_VERSION}-$(uname -m).dmg"
-"$SONAR_DMGBUILD" -s script/dmg_settings.py -D "app=$SONAR_BUNDLE" -D "background=$SONAR_RELEASE/background.png" Sonar "$SONAR_DMG"
+SONAR_DMG="outputs/Sonar-Classic-${SONAR_VERSION}-$(uname -m).dmg"
+"$SONAR_DMGBUILD" -s script/dmg_settings.py -D "app=$SONAR_BUNDLE" -D "background=$SONAR_RELEASE/background.png" "Sonar Classic" "$SONAR_DMG"
 codesign --timestamp --sign "$SONAR_SIGNING_IDENTITY" "$SONAR_DMG"
 xcrun notarytool submit "$SONAR_DMG" --keychain-profile "$SONAR_NOTARY_PROFILE" --wait
 xcrun stapler staple "$SONAR_DMG"

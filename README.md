@@ -1,4 +1,4 @@
-# Sonar
+# Sonar Classic
 
 Control your Mac with a wave of your hand. Sonar uses your Mac’s built-in speakers and microphone to detect movement.
 
@@ -20,7 +20,7 @@ cd sonar.cool
 ./script/build_and_run.sh
 ```
 
-The script builds and tests Sonar, installs it to `~/Applications/Sonar.app`, and opens it. Source files live in `work/Sonar/`. Try the gestures on your Mac to see how they respond to your setup.
+The script builds and tests Sonar Classic, installs it to `~/Applications/Sonar Classic.app`, and opens it. Source files live in `work/Sonar/`. Try the gestures on your Mac to see how they respond to your setup.
 
 ### Open in Xcode
 

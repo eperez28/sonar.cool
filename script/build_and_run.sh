@@ -3,7 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 SONAR_STAGE=$(mktemp -d /private/tmp/sonar-build.XXXXXX)
 trap 'rm -rf "$SONAR_STAGE"' EXIT
-SONAR_APP="$SONAR_STAGE/Sonar.app"
+SONAR_APP="$SONAR_STAGE/Sonar Classic.app"
 mkdir -p "$SONAR_APP/Contents/MacOS" "$SONAR_APP/Contents/Resources"
 ditto assets/zoom "$SONAR_APP/Contents/Resources/Zoom"
 ditto assets/gallery "$SONAR_APP/Contents/Resources/Gallery"
@@ -46,14 +46,14 @@ fi
 "$SONAR_APP/Contents/MacOS/Sonar" --self-test
 mkdir -p outputs
 # Replace generated output so an optional PDF from an older build cannot linger.
-rm -rf outputs/Sonar.app
-ditto --noextattr --norsrc "$SONAR_APP" outputs/Sonar.app
-ditto -c -k --keepParent --noextattr outputs/Sonar.app outputs/Sonar.zip
+rm -rf outputs/Sonar.app "outputs/Sonar Classic.app"
+ditto --noextattr --norsrc "$SONAR_APP" "outputs/Sonar Classic.app"
+ditto -c -k --keepParent --noextattr "outputs/Sonar Classic.app" "outputs/Sonar Classic.zip"
 if [[ "${1:-}" == "--build-only" ]]; then
-  echo "Built and tested: outputs/Sonar.app"
+  echo "Built and tested: outputs/Sonar Classic.app"
   exit 0
 fi
-SONAR_INSTALLED_APP="${SONAR_INSTALL_PATH:-$HOME/Applications/Sonar.app}"
+SONAR_INSTALLED_APP="${SONAR_INSTALL_PATH:-$HOME/Applications/Sonar Classic.app}"
 # Do not silently replace a certificate-signed installation with an ad-hoc build.
 if [[ -d "$SONAR_INSTALLED_APP" && "$SONAR_SIGNING_IDENTITY" == "-" ]] && codesign -dv "$SONAR_INSTALLED_APP" 2>&1 | /usr/bin/grep -q '^Authority='; then
   echo "Set SONAR_SIGNING_IDENTITY to the existing certificate before replacing this installation."
