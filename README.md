@@ -22,6 +22,20 @@ cd sonar.cool
 
 The script builds and tests Sonar, installs it to `~/Applications/Sonar.app`, and opens it. Source files live in `work/Sonar/`. Try the gestures on your Mac to see how they respond to your setup.
 
+### Open in Xcode
+
+A `Package.swift` is included for IDE support. Open the project in Xcode with:
+
+```sh
+xed .
+```
+
+Xcode gives you autocomplete, jump-to-definition, and inline errors while editing. To run the app directly from Xcode, select the **Sonar** scheme and press **Run (⌘R)**. macOS will prompt for microphone access on first launch.
+
+Two cosmetic items are not available in the Xcode build: the generated app icon and the logo mark in the sidebar. These are produced by the build script and are not source files. Everything else — gestures, audio, diagnostics — works normally.
+
+Use the build script for a release-quality build with full icons and signing. Use Xcode for day-to-day editing and development runs.
+
 ## Before you start
 
 Allow microphone access and Accessibility access for controlling other apps. Choose a mode, press Start, and keep your hands still during the countdown. Stop the session from the menu bar or with Control–Option–Command–Space.

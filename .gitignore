@@ -4,3 +4,4 @@ work/*
 !work/Sonar/
 .codex/*
 !.codex/environments/
+.swiftpm/

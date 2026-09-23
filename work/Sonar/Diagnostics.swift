@@ -174,7 +174,8 @@ final class Diagnostics: ObservableObject {
         var simulatedMotion = ScrollMotion()
         var simulatedTaps = DoublePushDetector()
         var simulatedTime = 0.0
-        let audio = HardwareAudio(tone:frequency,amplitude:next == "tone_off" ? 0 : amplitude) { [weak self] block in
+        let toneAmplitude: Double = next == "tone_off" ? 0 : amplitude
+        let receive: ([Float]) -> Void = { [weak self] block in
             let time = ProcessInfo.processInfo.systemUptime
             self?.queue.async { [weak self] in
                 guard let self else { return }
@@ -197,7 +198,8 @@ final class Diagnostics: ObservableObject {
                                 calibration.calibrationCarrierMin = min(calibration.calibrationCarrierMin ?? level, level)
                                 calibration.calibrationCarrierMax = max(calibration.calibrationCarrierMax ?? level, level)
                                 if lastBaseline.count == r.baseline.count, !lastBaseline.isEmpty {
-                                    let delta = zip(lastBaseline,r.baseline).map { abs(Double($0-$1)) }.reduce(0,+) / Double(lastBaseline.count)
+                                    let diffs = zip(lastBaseline,r.baseline).map { abs(Double($0-$1)) }
+                                    let delta = diffs.reduce(0,+) / Double(lastBaseline.count)
                                     if delta.isFinite { calibration.baselineChangeMaxDB = max(calibration.baselineChangeMaxDB,delta) }
                                 }
                                 lastBaseline = r.baseline
@@ -239,6 +241,7 @@ final class Diagnostics: ObservableObject {
                 }
             }
         }
+        let audio = HardwareAudio(tone:frequency,amplitude:toneAmplitude,receive:receive)
         do {
             engine = audio
             try audio.start()

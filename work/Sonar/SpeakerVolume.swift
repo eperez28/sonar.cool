@@ -14,7 +14,7 @@ struct SpeakerVolume {
         var address = AudioObjectPropertyAddress(mSelector:selector,mScope:kAudioDevicePropertyScopeOutput,mElement:element)
         var value = initial; var size = UInt32(MemoryLayout<T>.size)
         guard AudioObjectHasProperty(device,&address),
-              AudioObjectGetPropertyData(device,&address,0,nil,&size,&value) == noErr else { return nil }
+              withUnsafeMutableBytes(of:&value, { AudioObjectGetPropertyData(device,&address,0,nil,&size,$0.baseAddress!) }) == noErr else { return nil }
         return value
     }
     struct Snapshot: Equatable {

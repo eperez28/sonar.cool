@@ -10,7 +10,8 @@ ditto assets/gallery "$SONAR_APP/Contents/Resources/Gallery"
 cp assets/sonar.png "$SONAR_APP/Contents/Resources/SonarMark.png"
 SONAR_ICONSET="$SONAR_STAGE/Sonar.iconset"
 mkdir -p "$SONAR_ICONSET"
-swift script/render_icon.swift assets/sonar.png "$SONAR_STAGE/DockIcon.png"
+swiftc -target arm64-apple-macosx14.0 -framework AppKit script/render_icon.swift -o "$SONAR_STAGE/render_icon_bin"
+"$SONAR_STAGE/render_icon_bin" assets/sonar.png "$SONAR_STAGE/DockIcon.png"
 for size in 16 32 128 256 512; do
   sips -z "$size" "$size" "$SONAR_STAGE/DockIcon.png" --out "$SONAR_ICONSET/icon_${size}x${size}.png" >/dev/null
   double=$((size * 2))
