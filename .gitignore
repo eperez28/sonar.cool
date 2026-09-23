@@ -5,3 +5,4 @@ work/*
 .codex/*
 !.codex/environments/
 .swiftpm/
+.build/
