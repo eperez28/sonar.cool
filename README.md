@@ -8,7 +8,7 @@ Control your Mac with a wave of your hand. Sonar uses your Mac’s built-in spea
 
 ## Download
 
-[Download Sonar v0.1.4 for Apple silicon](https://github.com/eperez28/sonar.cool/releases/download/v0.1.4/Sonar-0.1.4-arm64.dmg). Open the DMG and drag Sonar into Applications. Requires an M-series Mac with macOS 14 or later. The download does not run on Intel Macs, and building from source on Intel is not guaranteed to work. Sonar does not work on MacBook Neo. This is an experimental pre-release; testing across MacBook models is ongoing.
+[Download Sonar v0.1.4 for Apple silicon](https://github.com/eperez28/sonar.cool/releases/download/v0.1.4/Sonar-0.1.4-arm64.dmg). Open the DMG and drag Sonar into Applications. This is an experimental pre-release; testing across MacBook models is ongoing.
 
 ## Run from source
 
@@ -40,31 +40,29 @@ Setup checks basic sensing and simulated gesture decisions; try each mode yourse
 
 ## Gestures
 
-- **Scroll:** Lift your hand up and down to scroll. Do a double tap (in the air!) to reverse directions.
-- **Change scroll direction:** enable **Air double-tap**, then push down twice quickly.
-- **Swipe:** sweep sideways to browse photos or navigate apps that accept arrow keys; pause before returning your hand.
-- **Zoom:** push toward the screen to zoom in and pull back to zoom out; browser zoom returns to 100%.
-- **Signal:** watch an illustration of the sound changes as you move.
-
-Use **Practice here** to try the bundled demos. For **Other apps**, bring the target app forward and click its content. Direction controls let you reverse Swipe and Zoom. [More about gestures and app compatibility](docs/usage.md).
+Use **Practice here** to try the bundled demos. For **Other apps**, bring the target app forward and click its content. [More about gestures and app compatibility](docs/usage.md).
 
 ### Lift your hand to scroll
 
-Lift your hand up and down to scroll. Do a double tap (in the air!) to reverse directions.
+Lift your palm to scroll and lower it to stop. To change direction, enable **Air double-tap**, then push down twice quickly.
 
 ![Hand gesture controlling scrolling](assets/zoom/scroll.gif)
 
 ### Sweep your hand to swipe
 
-Sweep your hand sideways to change photos. Pause before returning your hand.
+Sweep your hand sideways to browse photos or navigate apps that accept arrow keys. Pause before returning your hand. Direction controls let you reverse Swipe.
 
 ![Hand gesture controlling photo navigation](assets/zoom/swipe.gif)
 
 ### Push and pull to zoom
 
-Push toward the screen to zoom in. Pull back toward yourself to zoom out.
+Push toward the screen to zoom in. Pull back toward yourself to zoom out. Browser zoom returns to 100%. **Reverse gestures** flips the direction.
 
 ![Push and pull hand gesture controlling zoom](assets/zoom/push-pull.gif)
+
+### Watch the signal
+
+**Signal** shows an illustration of the sound changes as you move.
 
 ## How it works
 
