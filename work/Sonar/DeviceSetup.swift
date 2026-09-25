@@ -362,12 +362,13 @@ final class DeviceSetup: ObservableObject {
             let finalCheck: SetupCandidate
             let limitations = "Aggregate-only local measurements; no audio, device names, serial numbers, or window contents. Detector actions are simulated without controlling apps. This checks basic sensing and stopping, not every gesture or other-app delivery. Positioning before GO is recorded for context but is not scored. Thresholds are provisional."
         }
+        let hardwareName = DiagnosticHardware.modelName()
         let value = Report(generatedAt:ISO8601DateFormatter().string(from:Date()),model:DiagnosticHardware.modelIdentifier(),chip:DiagnosticHardware.chip(),
             macOS:ProcessInfo.processInfo.operatingSystemVersionString,version:Bundle.main.object(forInfoDictionaryKey:"CFBundleShortVersionString") as? String ?? "development",
             build:Bundle.main.object(forInfoDictionaryKey:"CFBundleVersion") as? String ?? "development",
             executableSHA256:Bundle.main.executableURL.flatMap { try? Data(contentsOf:$0) }.map { SHA256.hash(data:$0).map { String(format:"%02x",$0) }.joined() } ?? "Unavailable",
-            modelName:DiagnosticHardware.names[DiagnosticHardware.modelIdentifier()] ?? "Unknown",
-            modelYear:DiagnosticHardware.year(DiagnosticHardware.modelIdentifier()),
+            modelName:hardwareName,
+            modelYear:DiagnosticHardware.year(hardwareName),
             volume:volume?.volumes ?? [],result:detail,candidates:candidates,finalCheck:current)
         let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted,.sortedKeys]
         guard let data = try? encoder.encode(value), let json = String(data:data,encoding:.utf8) else { return }

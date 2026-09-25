@@ -5,6 +5,7 @@ import ApplicationServices
 import UniformTypeIdentifiers
 import CoreAudio
 import CryptoKit
+import IOKit
 
 struct DiagnosticSampleSummary: Codable {
     var phase: String
@@ -318,11 +319,12 @@ final class Diagnostics: ObservableObject {
         let digest = Bundle.main.executableURL.flatMap { try? Data(contentsOf:$0) }.map { SHA256.hash(data:$0).map { String(format:"%02x",$0) }.joined() } ?? "Unavailable"
         let summary = result.replacingOccurrences(of:" This test does not verify control of another app.",with:"") + (controlTest == "user_confirmed_scroll" ? " You confirmed scrolling worked in another app." : controlTest == "user_reported_no_scroll" ? " You reported that scrolling did not work in another app." : " Other-app scrolling has not been confirmed.")
         message = summary
+        let hardwareName = DiagnosticHardware.modelName()
         let value = DiagnosticReport(schemaVersion:5,generatedAt:generatedAt,executableSHA256:digest,diagnosticBuild:"diagnostics-5",
 
             appVersion:Bundle.main.object(forInfoDictionaryKey:"CFBundleShortVersionString") as? String ?? "unknown",
             build:Bundle.main.object(forInfoDictionaryKey:"CFBundleVersion") as? String ?? "unknown",
-            macModel:String(cString:model),modelName:DiagnosticHardware.names[String(cString:model)] ?? "Unknown",modelYear:DiagnosticHardware.year(String(cString:model)),chip:DiagnosticHardware.chip(),macOS:ProcessInfo.processInfo.operatingSystemVersionString,
+            macModel:String(cString:model),modelName:hardwareName,modelYear:DiagnosticHardware.year(hardwareName),chip:DiagnosticHardware.chip(),macOS:ProcessInfo.processInfo.operatingSystemVersionString,
             microphonePermission:permission,accessibilityGranted:AXIsProcessTrusted(),toneHz:tone,digitalAmplitude:amplitude,
             phases:summaries,controlTest:controlTest,result:summary,errorCode:errorCode,
             limitations:"Aggregate measurements only; no raw audio, spectra, personal identifiers, paths, or window information. Device numbers are session-local Core Audio routes. Timing gaps reflect audio delivery and diagnostic processing, not proven hardware dropouts. Thresholds are provisional. Calibration variation is a warning, not proof of hand movement or contamination. Scroll decisions replay the scroll and double-push rules at FFT frame intervals without posting events; this is not exact UI-timer replay and does not validate swipe or zoom. Optional stability checks sample one session; they do not automatically test sleep/wake or all route changes. Nonzero volume is not proof of an emitted tone. This test does not measure room noise sources or automatically verify other-app control. Control results are reported by the user.")
@@ -497,9 +499,11 @@ func testDiagnostics() {
         s.analyzedFrames = 100; s.carrierSum = carrier*100; s.contrastSum = contrast*100; s.motionFrames = motion
         return s
     }
-    precondition(DiagnosticHardware.names["Mac14,9"] == "MacBook Pro (14-inch, 2023)")
-    precondition(DiagnosticHardware.year("Mac14,9") == "2023")
-    precondition(DiagnosticHardware.year("unrecognized") == "Unknown")
+    testCheck(DiagnosticHardware.decodeName(Data("MacBook Air (13-inch, M5)\0".utf8)) == "MacBook Air (13-inch, M5)","Device-tree name decoding")
+    testCheck(DiagnosticHardware.decodeName(Data([0])) == nil,"Empty device-tree name")
+    testCheck(DiagnosticHardware.year("MacBook Pro (14-inch, 2023)") == "2023","Year from model name")
+    testCheck(DiagnosticHardware.year("MacBook Air (13-inch, M5)") == "Unknown","Name without a year")
+    testCheck(!DiagnosticHardware.modelName().isEmpty,"Model name lookup")
     let off = sample("tone_off",-90,2,0)
     let still = sample("tone_on_still",-50,30,0)
     let motion = sample("movement",-50,30,40)
@@ -531,43 +535,20 @@ func testDiagnostics() {
 }
 
 enum DiagnosticHardware {
-    // Apple model identifiers, https://support.apple.com/en-us/108052 (2026-09-11).
-    // Unknown models remain explicit; no serial-number lookup or network request.
-    static let names: [String:String] = [
-        "Mac17,7": "MacBook Pro (14-inch, M5 Pro or M5 Max)",
-        "Mac17,9": "MacBook Pro (14-inch, M5 Pro or M5 Max)",
-        "Mac17,6": "MacBook Pro (16-inch, M5 Pro or M5 Max)",
-        "Mac17,8": "MacBook Pro (16-inch, M5 Pro or M5 Max)",
-        "Mac17,2": "MacBook Pro (14-inch, M5)",
-        "Mac16,1": "MacBook Pro (14-inch, 2024)",
-        "Mac16,6": "MacBook Pro (14-inch, 2024)",
-        "Mac16,8": "MacBook Pro (14-inch, 2024)",
-        "Mac16,7": "MacBook Pro (16-inch, 2024)",
-        "Mac16,5": "MacBook Pro (16-inch, 2024)",
-        "Mac15,3": "MacBook Pro (14-inch, Nov 2023)",
-        "Mac15,6": "MacBook Pro (14-inch, Nov 2023)",
-        "Mac15,8": "MacBook Pro (14-inch, Nov 2023)",
-        "Mac15,10": "MacBook Pro (14-inch, Nov 2023)",
-        "Mac15,7": "MacBook Pro (16-inch, Nov 2023)",
-        "Mac15,9": "MacBook Pro (16-inch, Nov 2023)",
-        "Mac15,11": "MacBook Pro (16-inch, Nov 2023)",
-        "Mac14,5": "MacBook Pro (14-inch, 2023)",
-        "Mac14,9": "MacBook Pro (14-inch, 2023)",
-        "Mac16,12": "MacBook Air (13-inch, M4, 2025)",
-        "Mac16,13": "MacBook Air (15-inch, M4, 2025)",
-        "Mac14,6": "MacBook Pro (16-inch, 2023)",
-        "Mac14,10": "MacBook Pro (16-inch, 2023)",
-        "Mac14,7": "MacBook Pro (13-inch, M2, 2022)",
-        "MacBookPro18,3": "MacBook Pro (14-inch, 2021)",
-        "MacBookPro18,4": "MacBook Pro (14-inch, 2021)",
-        "MacBookPro18,1": "MacBook Pro (16-inch, 2021)",
-        "MacBookPro18,2": "MacBook Pro (16-inch, 2021)",
-        "MacBookPro17,1": "MacBook Pro (13-inch, M1, 2020)",
-        "MacBookPro16,3": "MacBook Pro (13-inch, 2020, Two Thunderbolt 3 ports)",
-        "MacBookPro16,2": "MacBook Pro (13-inch, 2020, Four Thunderbolt 3 ports)",
-        "MacBookPro16,1": "MacBook Pro (16-inch, 2019)",
-        "MacBookPro16,4": "MacBook Pro (16-inch, 2019)",
-    ]
+    // The marketing name comes from the Mac's own device tree, so new models are
+    // named without a hand-maintained table. No serial-number lookup or network request.
+    static func modelName() -> String {
+        let entry = IORegistryEntryFromPath(kIOMainPortDefault,"IODeviceTree:/product")
+        defer { if entry != 0 { IOObjectRelease(entry) } }
+        guard entry != 0,
+              let value = IORegistryEntryCreateCFProperty(entry,"product-name" as CFString,kCFAllocatorDefault,0)?.takeRetainedValue() as? Data,
+              let name = decodeName(value) else { return "Unknown (\(modelIdentifier()))" }
+        return name
+    }
+    static func decodeName(_ data:Data) -> String? {
+        let name = String(decoding:data.prefix { $0 != 0 },as:UTF8.self).trimmingCharacters(in:.whitespacesAndNewlines)
+        return name.isEmpty ? nil : name
+    }
     static func modelIdentifier() -> String {
         var size = 0
         guard sysctlbyname("hw.model",nil,&size,nil,0) == 0, size > 0 else { return "Unknown" }
@@ -582,10 +563,9 @@ enum DiagnosticHardware {
         guard sysctlbyname("machdep.cpu.brand_string",&chars,&size,nil,0) == 0 else { return "Unknown" }
         return String(cString:chars)
     }
-    static func year(_ id:String) -> String {
-        if ["Mac17,7","Mac17,9","Mac17,6","Mac17,8"].contains(id) { return "2026" }
-        if id == "Mac17,2" { return "2025" }
-        guard let name = names[id], let range = name.range(of:"20[0-9]{2}",options:.regularExpression) else { return "Unknown" }
+    // Recent marketing names often omit the year, e.g. "MacBook Air (13-inch, M5)".
+    static func year(_ name:String) -> String {
+        guard let range = name.range(of:"20[0-9]{2}",options:.regularExpression) else { return "Unknown" }
         return String(name[range])
     }
 }
