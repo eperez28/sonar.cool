@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 import CoreAudio
 import CryptoKit
 import IOKit
+import Security
 
 struct DiagnosticSampleSummary: Codable {
     var phase: String
@@ -80,6 +81,7 @@ struct DiagnosticReport: Codable {
     let schemaVersion: Int
     let generatedAt: String
     let executableSHA256: String
+    let buildSource: String
     let diagnosticBuild: String
     let appVersion: String
     let build: String
@@ -290,10 +292,15 @@ final class Diagnostics: ObservableObject {
             return "Audio delivery reported errors or no speaker callbacks. Review the per-test counters."
         }
         let rise = (still.meanCarrierDB ?? -160) - (off.meanCarrierDB ?? -160)
-        if rise < 6 || (still.meanContrastDB ?? 0) < 15 { return "Sonar’s tone was not clearly detected. Check built-in speaker volume. This alone does not identify the cause." }
-        if still.wouldScrollFrames > 0 {
-            return "Sonar would have scrolled during the still test. Save this report so we can investigate the unwanted scrolling."
+        let faint = rise < 6 || (still.meanContrastDB ?? 0) < 15
+        // Unwanted scrolling is the most important finding, so any still check that
+        // would have scrolled leads the result, including extended and other-frequency checks.
+        let stillChecks = values.filter { $0.phase == "tone_on_still" || $0.phase == "stability" }
+        let scrolled = stillChecks.filter { $0.wouldScrollFrames > 0 }
+        if !scrolled.isEmpty {
+            return "Sonar would have scrolled while your hand was still in \(scrolled.count) of \(stillChecks.count) still checks. Save this report so we can investigate the unwanted scrolling." + (faint ? " The tone was also faint at \(Int(still.frequencyHz)) Hz." : "")
         }
+        if faint { return "Sonar’s tone was not clearly detected. Check built-in speaker volume. This alone does not identify the cause." }
         if (still.calibrationCarrierMax ?? 0) - (still.calibrationCarrierMin ?? 0) > 12 {
             return "The sound changed during setup. Try again with your hand still, or save this report for help."
         }
@@ -320,7 +327,7 @@ final class Diagnostics: ObservableObject {
         let summary = result.replacingOccurrences(of:" This test does not verify control of another app.",with:"") + (controlTest == "user_confirmed_scroll" ? " You confirmed scrolling worked in another app." : controlTest == "user_reported_no_scroll" ? " You reported that scrolling did not work in another app." : " Other-app scrolling has not been confirmed.")
         message = summary
         let hardwareName = DiagnosticHardware.modelName()
-        let value = DiagnosticReport(schemaVersion:5,generatedAt:generatedAt,executableSHA256:digest,diagnosticBuild:"diagnostics-5",
+        let value = DiagnosticReport(schemaVersion:6,generatedAt:generatedAt,executableSHA256:digest,buildSource:BuildSource.describe(team:BuildSource.teamIdentifier()),diagnosticBuild:"diagnostics-6",
 
             appVersion:Bundle.main.object(forInfoDictionaryKey:"CFBundleShortVersionString") as? String ?? "unknown",
             build:Bundle.main.object(forInfoDictionaryKey:"CFBundleVersion") as? String ?? "unknown",
@@ -330,7 +337,7 @@ final class Diagnostics: ObservableObject {
             limitations:"Aggregate measurements only; no raw audio, spectra, personal identifiers, paths, or window information. Device numbers are session-local Core Audio routes. Timing gaps reflect audio delivery and diagnostic processing, not proven hardware dropouts. Thresholds are provisional. Calibration variation is a warning, not proof of hand movement or contamination. Scroll decisions replay the scroll and double-push rules at FFT frame intervals without posting events; this is not exact UI-timer replay and does not validate swipe or zoom. Optional stability checks sample one session; they do not automatically test sleep/wake or all route changes. Nonzero volume is not proof of an emitted tone. This test does not measure room noise sources or automatically verify other-app control. Control results are reported by the user.")
         let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted,.sortedKeys]
         let details = (try? encoder.encode(value)).flatMap { String(data:$0,encoding:.utf8) } ?? "Report encoding failed."
-        report = "Sonar diagnostic report\nGenerated: \(generatedAt)\nVersion: \(value.appVersion) (\(value.build)) · \(value.diagnosticBuild)\nBuild SHA-256: \(digest)\nMac: \(value.modelName)\nModel year: \(value.modelYear)\nChip: \(value.chip)\n\n\(layerSummary.joined(separator:"\n"))\n\nResult: \(summary)\n\nAdditional checks\n\(additionalSummary.joined(separator:"\n"))\n\nApp control check: \(controlTest)\nChecks saved: \(summaries.count)\n\nTechnical details for troubleshooting\n\(details)"
+        report = "Sonar diagnostic report\nGenerated: \(generatedAt)\nVersion: \(value.appVersion) (\(value.build)) · \(value.diagnosticBuild)\nBuild: \(value.buildSource)\nBuild SHA-256: \(digest)\nMac: \(value.modelName)\nModel year: \(value.modelYear)\nChip: \(value.chip)\n\n\(layerSummary.joined(separator:"\n"))\n\nResult: \(summary)\n\nAdditional checks\n\(additionalSummary.joined(separator:"\n"))\n\nApp control check: \(controlTest)\nChecks saved: \(summaries.count)\n\nTechnical details for troubleshooting\n\(details)"
     }
     var additionalSummary: [String] {
         let extra = Array(summaries.dropFirst(3))
@@ -349,6 +356,8 @@ final class Diagnostics: ObservableObject {
         let frames = base.reduce(0) { $0 + $1.analyzedFrames }
         let errors = base.reduce(0) { $0 + $1.inputErrors }
         let off = base.first { $0.phase == "tone_off" }
+        let stillChecks = summaries.filter { $0.phase == "tone_on_still" || $0.phase == "stability" }
+        let stillFrames = stillChecks.isEmpty ? nil : stillChecks.reduce(0) { $0 + $1.wouldScrollFrames }
         let heard = still != nil && off != nil && (still!.meanCarrierDB ?? -160) - (off!.meanCarrierDB ?? -160) >= 6 && (still!.meanContrastDB ?? 0) >= 15
         return [
             "Microphone permission: \(AVCaptureDevice.authorizationStatus(for:.audio) == .authorized ? "allowed" : "unavailable")",
@@ -357,7 +366,7 @@ final class Diagnostics: ObservableObject {
             "Speaker sound: \(heard ? "detected by microphone" : "not confirmed")",
             "Calibration: \(still == nil ? "not completed" : (still!.calibrationCarrierMax ?? 0) - (still!.calibrationCarrierMin ?? 0) > 12 ? "signal changed during setup" : "no large tone variation measured")",
             "Hand motion: \(move == nil ? "not completed" : move!.motionFrames > 0 ? "detected" : "not detected")",
-            "Scroll decisions while still: \(still == nil ? "not completed" : still!.wouldScrollFrames > 0 ? "unwanted scrolling detected" : "no scrolling triggered")",
+            "Scroll decisions while still: \(stillFrames == nil ? "not completed" : stillFrames! > 0 ? "unwanted scrolling detected (\(stillFrames!) frames across all still checks)" : "no scrolling triggered")",
             "Other-app scrolling: \(controlTest == "not_tested" ? "optional check not run" : controlTest == "user_confirmed_scroll" ? "you confirmed it scrolled" : controlTest == "user_reported_no_scroll" ? "you reported no scrolling" : "waiting for your confirmation")"
         ]
     }
@@ -519,6 +528,13 @@ func testDiagnostics() {
     precondition(Diagnostics.result([off,still,alternateOff,alternateStill,motion]).contains("tone and movement"))
     var phantom = still; phantom.wouldScrollFrames = 4
     precondition(Diagnostics.result([off,phantom,motion]).contains("would have scrolled"))
+    // Reported on an M5 MacBook Air: faint default tone, but scrolling in the extended still check.
+    var drift = still; drift.phase = "stability"; drift.wouldScrollFrames = 102
+    let faintScroll = Diagnostics.result([off,sample("tone_on_still",-88,13,0),motion,drift])
+    testCheck(faintScroll.contains("would have scrolled while your hand was still in 1 of 2") && faintScroll.contains("also faint"),"Unwanted scrolling leads the result")
+    testCheck(BuildSource.describe(team:"PW52B9B7ND").hasPrefix("Official release"),"Official build label")
+    testCheck(BuildSource.describe(team:nil).hasPrefix("Local build"),"Local build label")
+    testCheck(BuildSource.describe(team:"ABCDE12345").contains("ABCDE12345"),"Other signer label")
     var unstable = still; unstable.calibrationCarrierMin = -80; unstable.calibrationCarrierMax = -40
     precondition(Diagnostics.result([off,unstable,motion]).contains("changed during setup"))
     precondition(Diagnostics.result([off,still,motion,alternateOff,alternateStill]).contains("tone and movement"))
@@ -531,7 +547,25 @@ func testDiagnostics() {
     precondition(reportCheck.report.contains("You confirmed scrolling worked in another app."))
     precondition(reportCheck.report.contains("Generated:") && reportCheck.report.contains("Build SHA-256:"))
     precondition(reportCheck.report.contains("Extended stillness: not run"))
+    testCheck(reportCheck.report.contains("\nBuild: "),"Report shows build source")
     print("PASS diagnostic result classification, report metadata, optional summary and aggregate-only sample schema")
+}
+
+enum BuildSource {
+    // Team that signs official releases (Developer ID Application: Explay, LLC).
+    static let officialTeam = "PW52B9B7ND"
+    static func teamIdentifier() -> String? {
+        var code: SecCode?; var staticCode: SecStaticCode?; var info: CFDictionary?
+        guard SecCodeCopySelf([],&code) == errSecSuccess, let code,
+              SecCodeCopyStaticCode(code,[],&staticCode) == errSecSuccess, let staticCode,
+              SecCodeCopySigningInformation(staticCode,SecCSFlags(rawValue:kSecCSSigningInformation),&info) == errSecSuccess,
+              let values = info as? [String:Any] else { return nil }
+        return values[kSecCodeInfoTeamIdentifier as String] as? String
+    }
+    static func describe(team: String?) -> String {
+        guard let team else { return "Local build (not the official download)" }
+        return team == officialTeam ? "Official release (signed by Explay, LLC)" : "Signed by another developer (team \(team))"
+    }
 }
 
 enum DiagnosticHardware {
